@@ -2,16 +2,41 @@
 
 Load tests for Schul-Cloud application.
 
-## Python
+## Requirements
+
+- Python (>= 3.6.10)
+- Docker (>= 19.03.5, optional)
+
+Create a YAML file with user credentials (email, password). Filename should be `users_${HOSTNAME}.yaml`.
+
+Example for `HOSTNAME=hackathon.schul-cloud.org`:
+```
+# file: users_hackathon.schul-cloud.org.yaml
+---
+admin:
+  - email: admin@schul-cloud.org
+    password: foo
+teacher:
+  - email: lehrer@schul-cloud.org
+    password: bar
+pupil:
+  - email: schueler@schul-cloud.org
+    password: baz
+```
+
+## Run the load tests
+
+### Python
 
 ```
 pip install -r requirements.txt
-locust -f ./locustfile.py --no-web -c 20 --run-time 30s --host https://hackathon.schul-cloud.org
+locust -f ./locustfile.py --no-web --clients 20 --run-time 30s --host https://hackathon.schul-cloud.org
 ```
 
-## Docker
+### Docker
 
 ```
+docker run -it --rm --entrypoint /bin/sh -v "$(pwd)":/app -w /app locustio/locust:0.14.4
 pip install -r requirements.txt
-docker run -it --rm -v "$(pwd)":/app -e "LOCUSTFILE_PATH=/app/locustfile.py" -e "LOCUST_OPTS=--no-web -c 20 --run-time 30s" -e "TARGET_URL=https://hackathon.schul-cloud.org" locustio/locust:0.14.4
+locust -f ./locustfile.py --no-web --clients 20 --run-time 30s --host https://hackathon.schul-cloud.org
 ```
