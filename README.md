@@ -38,5 +38,5 @@ locust -f ./locustfile.py --no-web --clients 20 --run-time 30s --host https://ha
 ```
 docker run -it --rm --entrypoint /bin/sh -v "$(pwd)":/app -w /app locustio/locust:0.14.4
 pip install -r requirements.txt
-locust -f ./locustfile.py --no-web --clients 20 --run-time 30s --host https://hackathon.schul-cloud.org
+locust -f ./locustfile.py --no-web --clients 20 --run-time 30s --host https://hackathon.schul-cloud.org --logfile $(date '+%Y-%m-%d-%H:%M:%S')-hackathon.log --csv=$(date '+%Y-%m-%d-%H:%M:%S')-hackathon
 ```
