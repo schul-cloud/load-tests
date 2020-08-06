@@ -29,7 +29,7 @@ pupil:
 ### Python
 
 ```
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 locust -f ./locustfile.py --no-web --clients 20 --run-time 30s --host https://hackathon.schul-cloud.org
 ```
 
