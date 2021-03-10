@@ -1,6 +1,6 @@
-# Schul-Cloud load tests
+# HPI Schul-Cloud load tests
 
-Load tests for Schul-Cloud application.
+Load tests for HPI Schul-Cloud application.
 
 ## Requirements
 
@@ -9,9 +9,9 @@ Load tests for Schul-Cloud application.
 
 Create a YAML file with user credentials (email, password). Filename should be `users_${HOSTNAME}.yaml`.
 
-Example for `HOSTNAME=hackathon.schul-cloud.org`:
+Example for `HOSTNAME=hackathon.hpi-schul-cloud.de`:
 ```
-# file: users_hackathon.schul-cloud.org.yaml
+# file: users_hackathon.hpi-schul-cloud.de.yaml
 ---
 admin:
   - email: admin@schul-cloud.org
@@ -30,7 +30,7 @@ pupil:
 
 ```
 pip3 install -r requirements.txt
-locust -f ./locustfile.py --no-web --clients 20 --run-time 30s --host https://hackathon.schul-cloud.org
+locust -f ./locustfile.py --no-web --clients 20 --run-time 30s --host https://hackathon.hpi-schul-cloud.de
 ```
 
 ### Docker
@@ -38,5 +38,5 @@ locust -f ./locustfile.py --no-web --clients 20 --run-time 30s --host https://ha
 ```
 docker run -it --rm --entrypoint /bin/sh -v "$(pwd)":/app -w /app locustio/locust:0.14.4
 pip install -r requirements.txt
-locust -f ./locustfile.py --no-web --clients 20 --run-time 30s --host https://hackathon.schul-cloud.org --logfile $(date '+%Y-%m-%d-%H:%M:%S')-hackathon.log --csv=$(date '+%Y-%m-%d-%H:%M:%S')-hackathon
+locust -f ./locustfile.py --no-web --clients 20 --run-time 30s --host https://hackathon.hpi-schul-cloud.de --logfile $(date '+%Y-%m-%d-%H:%M:%S')-hackathon.log --csv=$(date '+%Y-%m-%d-%H:%M:%S')-hackathon
 ```
