@@ -29,10 +29,9 @@ class WebsiteTasks(TaskSet):
             }
             with self.client.request("POST", "/login/", data=login_data, catch_response=True, allow_redirects=False)  as login_post_response:
                 if (login_post_response.status_code != 302) or not login_post_response.headers.get('location').startswith("/login/success"):
-                    login_post_response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
-
+                    login_post_response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(login_post_response.status_code)+", header: "+str(login_post_response.headers)+")")
     def on_stop(self):
-        self.client.get("/logout/", allow_redirects=False)
+        self.client.get("/logout/", allow_redirects=True)
         self.csrf_token = None
 
     @task
@@ -41,81 +40,81 @@ class WebsiteTasks(TaskSet):
 
     @task
     def account(self):
-        with self.client.get("/account/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/account/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
 
     @task
     def dashboard(self):
-        with self.client.get("/dashboard/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/dashboard/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
-                response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
+                response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+")")
 
     @task
     def courses(self):
-        with self.client.get("/courses/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/courses/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
     def courses_add(self):
-        with self.client.get("/courses/add/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/courses/add/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
 
     @task
     def homework(self):
-        with self.client.get("/homework/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/homework/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
     def homework_new(self):
-        with self.client.get("/homework/new/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/homework/new/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
     @task
     def homework_asked(self):
-        with self.client.get("/homework/asked/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/homework/asked/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
     @task
     def homework_private(self):
-        with self.client.get("/homework/private/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/homework/private/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
     @task
     def homework_archive(self):
-        with self.client.get("/homework/archive/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/homework/archive/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
 
     @task
     def files(self):
-        with self.client.get("/files/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/files/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
     @task
     def files_my(self):
-        with self.client.get("/files/my/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/files/my/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
     @task
     def files_courses(self):
-        with self.client.get("/files/courses/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/files/courses/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
     @task
     def files_shared(self):
-        with self.client.get("/files/shared/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/files/shared/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
 
     @task
     def news(self):
-        with self.client.get("/news/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/news/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
 
     @task
     def calendar(self):
-        with self.client.get("/calendar/", catch_response=True, allow_redirects=False) as response:
+        with self.client.get("/calendar/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ")")
 
