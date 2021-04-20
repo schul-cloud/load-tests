@@ -37,7 +37,12 @@ def fetch_static_assets(session, response):
 
 
 class WebsiteTasks(TaskSet):
+    next_batch = ""
+    filter_id = None
     csrf_token = None
+    token = None
+    user_id = None
+    room_ids = []
 
     def on_start(self):
         if self.user.login_credentials == None:
@@ -56,6 +61,18 @@ class WebsiteTasks(TaskSet):
             with self.client.request("POST", "/login/", data=login_data, catch_response=True, allow_redirects=False)  as login_post_response:
                 if (login_post_response.status_code != 302) or not login_post_response.headers.get('location').startswith("/login/success"):
                     login_post_response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(login_post_response.status_code)+", header: "+str(login_post_response.headers)+")")
+                else:
+                    with self.client.request("GET", "/messenger/token", catch_response=True, allow_redirects=False) as response:
+                        if(response.status_code == 200):
+                            i = json.loads(response.text)
+                            self.token = i["accessToken"]
+                            self.user_id = i["userId"]
+                    with self.client.get("/courses/" , catch_response=True, allow_redirects=True) as response:
+                        if(response.status_code == 200):
+                            soup = BeautifulSoup(response.text, "html.parser")
+                            for room_id in soup.find_all('article'):
+                                self.room_ids.append(room_id.get('data-loclink').removeprefix("/courses/"))
+
     def on_stop(self):
         self.client.get("/logout/", allow_redirects=True)
         self.csrf_token = None
@@ -95,24 +112,18 @@ class WebsiteTasks(TaskSet):
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
             else:
                 fetch_static_assets(self, response)
-                                
-
 
     @task
     def courses_add(self):
         with self.client.get("/courses/add/", catch_response=True, allow_redirects=True) as response:
             if response.status_code != 200:
-                soup = BeautifulSoup(response.text, "html.parser")
-                #print(soup)
+                soup = BeautifulSoup(response.text, "html.parser")  
                 response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
             else:
-                #print(response)
                 fetch_static_assets(self, response)
     @task
     def courses_add_course(self):
-        #print(self.user)
-        #print(self.user_type)
-        if self.user != "pupil" :
+        if "schueler" not in str(self.user.login_credentials["email"]):
             course_data = {
                 "stage":"on",
                 "_method":"post",
@@ -126,12 +137,10 @@ class WebsiteTasks(TaskSet):
             }
             with self.client.request("POST", "/courses/", data=course_data, catch_response=True, allow_redirects=True) as response:
                 soup = BeautifulSoup(response.text, "html.parser")
-                #print(soup)
                 if response.status_code != 200:
                     response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
                 else:
                     json_object = json.loads(soup.string)
-                    #print(json_object["createdCourse"]["id"])
                     with self.client.request("DELETE", 
                         "/courses/" + json_object["createdCourse"]["id"] + "/" , 
                         catch_response=True, 
@@ -151,8 +160,6 @@ class WebsiteTasks(TaskSet):
 
                         if response.status_code != 200:
                             response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
-        else:
-            response.status_code = 200
 
     @task
     def homework(self):
@@ -266,12 +273,186 @@ class WebsiteTasks(TaskSet):
             else:
                 fetch_static_assets(self, response)
 
+    @task
+    def message(self):
+        if "schueler" not in str(self.user.login_credentials["email"]):
+            self.client.headers["authorization"] = "Bearer " + self.token
+            self.client.headers["accept"] = "application/json"
+
+            payload = {
+                "timeout": 30000
+            }
+
+            name = "https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/sync"
+            response = self.client.get("https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/sync", params=payload, name=name)
+            if response.status_code != 200:
+                return
+
+            json_response_dict = response.json()
+            if 'next_batch' in json_response_dict:
+                self.next_batch = json_response_dict['next_batch']
+
+
+            # extract rooms
+            if 'rooms' in json_response_dict and 'join' in json_response_dict['rooms']:
+                room_ids = list(json_response_dict['rooms']['join'].keys())
+                if len(room_ids) > 0:
+                    self.room_ids = room_ids
+
+            for room_id in self.room_ids:
+                message = {
+                    "msgtype": "m.text",
+                    "body": "Load Test Message",
+                }
+                        
+                self.client.put(
+                    "https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/typing/" + self.user_id,
+                    json={"typing": True, "timeout":30000},
+                    name="https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/typing/" + self.user_id + " - true"
+                )
+
+                self.client.put(
+                    "https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/typing/" + self.user_id,
+                    json={"typing": False},
+                    name="https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/typing/" + self.user_id + " - false"
+                )
+
+                self.client.post(
+                    "https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/send/m.room.message",
+                    json=message,
+                    name="https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/send/m.room.message"
+                )
+
+            self.client.get("https://matrix.niedersachsen.messenger.schule/_matrix/client/versions")
+
+            self.client.get("https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/voip/turnServer")
+
+            self.client.get("https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/pushrules/")
+
+            self.client.get("https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/joined_groups")
+
+            self.client.get(
+                "https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/profile/" + self.user_id,
+                name="https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/profile/" + self.user_id
+            )
+    
+    
+    #@task
+    def newFilesDocx(self):
+        if "schueler" not in str(self.user.login_credentials["email"]):
+            data = {
+                "name" : "Loadtest docx",
+                "type" : "docx",
+                "studentEdit" : "false"
+            }
+            with self.client.request(   
+                "POST",
+                "/files/newFile",
+                headers = { 
+                    "Connection" : "keep-alive",
+                    "x-requested-with" : "XMLHttpRequest",
+                    "csrf-token": self.csrf_token,
+                    "Content-Type" : "application/x-www-form-urlencoded",
+                    "Origin" : "https://staging.niedersachsen.hpi-schul-cloud.org",
+                    "Sec-Fetch-Site" : "same-origin",
+                    "Sec-Fetch-Mode" : "cors",
+                    "Sec-Fetch-Dest" : "empty",
+                    "Referer" : "https://staging.niedersachsen.hpi-schul-cloud.org/files/my/"
+                },
+                data = data,
+                catch_response = True, 
+                allow_redirects = True
+            ) as response:
+                if response.status_code != 200:
+                    response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+                else:
+                    with self.client.request(
+                        "GET",
+    	                "/files/"
+                    ) as response:
+                        soup = BeautifulSoup(response.text, "html.parser")
+                        
+
+                    #with self.client.request(
+                    #    "DELETE",
+                    #    "https://staging.niedersachsen.hpi-schul-cloud.org/files/file/",
+                    #    "Connection" : "keep-alive",
+                    #    "x-requested-with" : "XMLHttpRequest",
+                    #    "csrf-token": self.csrf_token,
+                    #    "Origin" : "https://staging.niedersachsen.hpi-schul-cloud.org",
+                    #    "Sec-Fetch-Site" : "same-origin",
+                    #    "Sec-Fetch-Mode" : "cors",
+                    #    "Sec-Fetch-Dest" : "empty",
+                    #    "Referer" : "https://staging.niedersachsen.hpi-schul-cloud.org/files/my/"
+                    #)
+
+    #@task
+    def newFilesXlsx(self):
+        if "schueler" not in str(self.user.login_credentials["email"]):
+            data = {
+                "name" : "Loadtest xlsx",
+                "type" : "xlsx",
+                "studentEdit" : "false"
+            }
+            with self.client.request(   
+                "POST",
+                "/files/newFile",
+                headers = { 
+                    "Connection" : "keep-alive",
+                    "x-requested-with" : "XMLHttpRequest",
+                    "csrf-token": self.csrf_token,
+                    "Content-Type" : "application/x-www-form-urlencoded",
+                    "Origin" : "https://staging.niedersachsen.hpi-schul-cloud.org",
+                    "Sec-Fetch-Site" : "same-origin",
+                    "Sec-Fetch-Mode" : "cors",
+                    "Sec-Fetch-Dest" : "empty",
+                    "Referer" : "https://staging.niedersachsen.hpi-schul-cloud.org/files/my/"
+                },
+                data = data,
+                catch_response = True, 
+                allow_redirects = True
+            ) as response:
+                if response.status_code != 200:
+                    response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+
+    #@task
+    def newFilesPptx(self):
+        if "schueler" not in str(self.user.login_credentials["email"]):
+            data = {
+                "name" : "Loadtest pptx",
+                "type" : "pptx",
+                "studentEdit" : "false"
+            }
+            with self.client.request(   
+                "POST",
+                "/files/newFile",
+                headers = { 
+                    "Connection" : "keep-alive",
+                    "x-requested-with" : "XMLHttpRequest",
+                    "csrf-token": self.csrf_token,
+                    "Content-Type" : "application/x-www-form-urlencoded",
+                    "Origin" : "https://staging.niedersachsen.hpi-schul-cloud.org",
+                    "Sec-Fetch-Site" : "same-origin",
+                    "Sec-Fetch-Mode" : "cors",
+                    "Sec-Fetch-Dest" : "empty",
+                    "Referer" : "https://staging.niedersachsen.hpi-schul-cloud.org/files/my/"
+                },
+                data = data,
+                catch_response = True, 
+                allow_redirects = True
+            ) as response:
+                if response.status_code != 200:
+                    response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+
+
 class AdminUser(HttpUser):
     weight = 1
     tasks = [WebsiteTasks]
     wait_time = between(5, 15)
 
     user_type = "admin"
+    next_batch = ""
+    filter_id = None
     login_credentials = None
 
     def __init__(self, *args, **kwargs):
@@ -299,6 +480,8 @@ class TeacherUser(HttpUser):
     wait_time = between(5, 15)
 
     user_type = "teacher"
+    next_batch = ""
+    filter_id = None
     login_credentials = None
 
     def __init__(self, *args, **kwargs):
@@ -326,6 +509,8 @@ class PupilUser(HttpUser):
     wait_time = between(5, 15)
 
     user_type = "pupil"
+    next_batch = ""
+    filter_id = None
     login_credentials = None
 
     def __init__(self, *args, **kwargs):
