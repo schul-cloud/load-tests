@@ -5,7 +5,15 @@ import random
 import sys
 import yaml
 import time
+import webbrowser
+import hashlib
 
+from selenium import webdriver
+from selenium.common.exceptions import (ElementClickInterceptedException, NoSuchWindowException)
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait # available since 2.4.0
+from selenium.webdriver.support import expected_conditions as EC # available since 2.26.0
+from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
 from locust import HttpUser, TaskSet, between, task
 from locust.exception import LocustError, CatchResponseError, ResponseError
@@ -260,7 +268,7 @@ class WebsiteTasks(TaskSet):
         txn_id = 0
 
         if "schueler" not in str(self.user.login_credentials["email"]):
-            self.client.headers["authorization"] = "Bearer " + self.token
+            self.client.headers["authorization"] = "Bearer " + str(self.token)
             self.client.headers["accept"] = "application/json"
 
             payload = {
@@ -362,7 +370,122 @@ class WebsiteTasks(TaskSet):
                 #name="https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/profile/" + self.user_id
             )
     
+
+    @task
+    def bBBTest(self):
+        numberRooms = 3
+        numberUsers = 6
+        host = "https://bbb-1.bbb.staging.messenger.schule"
+        filename = "./SHAREDS.txt"
+        if not os.path.exists(filename):
+            logger.error("File does not exist: " + filename)
+            sys.exit(1)
+
+        driverWB = webdriver.Chrome('.\chromedriver.exe')
+        driverWB.get(host)
+
+        shareds = open(filename, 'r').read()
+        counterfirst = 0
+        counterTab = 1
+        while counterfirst < numberRooms:
+            
+            timestamp = str(time.time())
+
+            v = "create"
+            x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&name=loadtest-" + str(time.time()) + str(counterfirst) + "&moderatorPW=123&attendeePW=456&lockSettingsDisableMic=true"
+            y = host + "/bigbluebutton/api/" + v + "?" + x
+            z = str(v) + str(x) + str(shareds)
+            w = str(y) + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
+
+            driverWB.get(w)
+
+            countersecond = 0
+
+            v = "join"
+            x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&fullName=loadtest-" + str(counterfirst) + "userMLoadtest-" + str(countersecond) + "&userID=loadtest-" + str(counterfirst) + "userMLoadtest-" + str(countersecond) + "&password=123"
+            y = host + "/bigbluebutton/api/" + v + "?" + x
+            z = str(v) + str(x) + str(shareds)
+            w = y + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
+                
+            windows = driverWB.window_handles
+            driverWB.execute_script("window.open('');")
+            driverWB.switch_to.window(driverWB.window_handles[counterTab])
+            driverWB.get(w)
+
+            ui_element = "button[aria-label='Listen only']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            element.click()
+
+            time.sleep(5)
+            
+            ui_element = "tippy-21"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.ID, ui_element)))
+            element.click()
+
+            ui_element = "li[aria-labelledby='dropdown-item-label-26']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            element.click()
+
+            ui_element = "input[id='video-modal-input']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            #element.clear()
+            element.send_keys('https://player.vimeo.com/video/418854539')
+
+            time.sleep(2)
+
+            ui_element = "button[aria-label='Share a new video']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            element.click()
+
+            time.sleep(10) 
+
+            counterTab += 1
+            countersecond += 1
+            
+            while countersecond < numberUsers:
+                
+                v = "join"
+                x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&fullName=loadtest-" + str(counterfirst) + "userLoadtest-" + str(countersecond) + "&userID=loadtest-" + str(counterfirst) + "userLoadtest-" + str(countersecond) + "&password=456"
+                y = host + "/bigbluebutton/api/" + v + "?" + x
+                z = str(v) + str(x) + str(shareds)
+                w = y + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
+                
+                windows = driverWB.window_handles
+                driverWB.execute_script("window.open('');")
+                driverWB.switch_to.window(driverWB.window_handles[counterTab])
+                driverWB.get(w)
+                
+                ui_element = "button[aria-label='Play audio']"
+                element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+                element.click()
+
+                time.sleep(10) 
+
+                #ui_element = "button[class='play rounded-box state-paused']"
+                #element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+                #element.click()
+
+                countersecond += 1
+                counterTab += 1
+
+            counterfirst += 1
     
+        counterfirst = 0
+        time.sleep(30)
+        while counterfirst < numberRooms:
+            
+            v = "end"
+            x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&password=123"
+            y = host + "/bigbluebutton/api/" + v + "?" + x
+            z = str(v) + str(x) + str(shareds)
+            w = str(y) + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
+            
+            driverWB.get(w)
+
+            driverWB.quit()
+            time.sleep(3)
+            counterfirst += 1
+
     @task
     def newFilesDocx(self):
         if "schueler" not in str(self.user.login_credentials["email"]):
