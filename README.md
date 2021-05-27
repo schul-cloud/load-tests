@@ -23,7 +23,7 @@ pupil:
   - email: schueler@schul-cloud.org
     password: baz
 ```
-Create a txt file with just the BBB-Key. Filename should be `requirements_BBB.txt`.
+Create a TXT file with just the BBB-Key. Filename should be `requirements_BBB.txt`.
 
 ## Run the load tests
 
