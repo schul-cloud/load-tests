@@ -30,7 +30,7 @@ pupil:
 
 ```
 pip3 install -r requirements.txt
-locust -f ./locustfile.py --no-web --clients 20 --run-time 30s --host https://hackathon.hpi-schul-cloud.de
+locust -f ./locustfile.py --no-web --clients 20 --run-time 30s --host https://hackathon.hpi-schul-cloud.de --tag TEST
 ```
 
 ### Docker
