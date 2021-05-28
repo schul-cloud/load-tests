@@ -3,6 +3,7 @@ import logging
 import os
 import random
 import sys
+from locust.user.task import tag
 import yaml
 import time
 import webbrowser
@@ -142,108 +143,171 @@ class WebsiteTasks(TaskSet):
         self.client.get("/logout/", allow_redirects=True)
         self.csrf_token = None
 
+    @tag('SC')
     @task
     def index(self):
         self.client.get("/")
 
+    @tag('SC')
     @task
     def calendar(self):
         normalGET(self, "/calendar/")
 
+    @tag('SC')
     @task
     def account(self):
         normalGET(self, "/account/")
 
+    @tag('SC')
     @task
     def dashboard(self):
         normalGET(self, "/dashboard/")
 
+    @tag('SC')
     @task
     def courses(self):
         normalGET(self, "/courses/")
 
+    @tag('SC')
     @task
     def courses_add(self):
         normalGET(self, "/courses/add/")
     
+    @tag('SC')
     @task
     def homework(self):
         normalGET(self, "/homework/")
 
+    @tag('SC')
     @task
     def homework_new(self):
         normalGET(self, "/homework/new/")
         
+    @tag('SC')
     @task
     def homework_asked(self):
         normalGET(self, "/homework/asked/")
 
+    @tag('SC')
     @task
     def homework_private(self):
         normalGET(self, "/homework/private/")
 
+    @tag('SC')
     @task
     def homework_archive(self):
         normalGET(self, "/homework/archive/")
 
+    @tag('SC')
     @task
     def files(self):
         normalGET(self, "/files/")
 
+    @tag('SC')
     @task
     def files_my(self):
         normalGET(self, "/files/my/")
 
+    @tag('SC')
     @task
     def files_courses(self):
         normalGET(self, "/files/courses/")
 
+    @tag('SC')
     @task
     def files_shared(self):
         normalGET(self, "/files/shared/")
 
+    @tag('SC')
     @task
     def files_shared(self):
         normalGET(self, "/files/shared/")
 
+    @tag('SC')
     @task
     def news(self):
         normalGET(self, "/news/")
 
+    @tag('SC')
     @task
     def newsnew(self):
         normalGET(self, "/news/new")
-
+    
+    @tag('SC')
     @task
     def addons(self):
         normalGET(self, "/addons/")
 
+    @tag('SC')
     @task
     def content(self):
         normalGET(self, "/content/")
 
+    @tag('TEST')
+    @tag('SC')
     @task
     def courses_add_course(self):
-        if "schueler" not in str(self.user.login_credentials["email"]):
+        if "schueler" in str(self.user.login_credentials["email"]):
+            pass
+        
+        else:
             course_data = {
-                "stage"     :"on",
-                "_method"   :"post",
-                "schoolId"  :"5f2987e020834114b8efd6f8",
-                "name"      :"Loadtest",
-                "color"     :"#ACACAC",
-                "teacherIds":"0000d231816abba584714c9e",
-                "startDate" :"01.08.2020",
-                "untilDate" :"31.07.2021",
-                "_csrf"     : self.csrf_token
+                "stage"                 :"on",
+                "_method"               :"post",
+                "schoolId"              :"5f2987e020834114b8efd6f8",
+                "name"                  :"Loadtest",
+                "color"                 :"#ACACAC",
+                "teacherIds"            :"0000d231816abba584714c9e",
+                "startDate"             :"01.08.2020",
+                "untilDate"             :"31.07.2021",
+                "times[0][weekday]"     : "0",
+                "times[0][startTime]"   : "12:00",
+                "times[0][duration]"    : "90",
+                "times[0][room]"        : "1",
+                "times[1][weekday]"     : "2",
+                "times[1][startTime]"   : "12:00",
+                "times[1][duration]"    : "90",
+                "times[1][room]"        : "2",
+                "_csrf"                 : self.csrf_token
             }
             with self.client.request("POST", "/courses/", data=course_data, catch_response=True, allow_redirects=True) as response:
+                
                 soup = BeautifulSoup(response.text, "html.parser")
                 if response.status_code != 200:
                     response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
                 else:
                     json_object = json.loads(soup.string)
+                    courseID = json_object["createdCourse"]["id"]
+
+                    ### Add Tool ###
+                    tool_data = {
+                        "name"          : "bettermarks",
+                        "url"           : "https://acc.bettermarks.com/v1.0/schulcloud/de_ni_staging/login",
+                        "logo_url"      : "https://acc.bettermarks.com/app/assets/bm-logo.png",
+                        "isLocal"       : "true",
+                        "isTemplate"    : "false",
+                        "skipConsent"   : "false",
+                        "originTool"    : "600048b0755565002840fde4",
+                        "courseid"      : courseID
+                    }
+                    
+                    with self.client.request("POST", 
+                        "/courses/" + courseID + "/tools/add",
+                        data=tool_data,
+                        catch_response=True, 
+                        allow_redirects=True
+                    ) as response:
+                        with self.client.request("GET",
+                            "https://acc.bettermarks.com/v1.0/schulcloud/de_ni_staging/login",
+                            catch_response=True, 
+                            allow_redirects=True
+                        ) as response:
+                            if response.status_code != 200:
+                                response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+
+                    ### Delete Course ###
                     with self.client.request("DELETE", 
-                        "/courses/" + json_object["createdCourse"]["id"] + "/" , 
+                        "/courses/" + courseID + "/" , 
                         catch_response=True, 
                         allow_redirects=True, 
                         headers = {
@@ -262,12 +326,14 @@ class WebsiteTasks(TaskSet):
                         if response.status_code != 200:
                             response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
 
-    
+    @tag('MM')
     @task
     def message(self):
         txn_id = 0
 
-        if "schueler" not in str(self.user.login_credentials["email"]):
+        if "schueler" in str(self.user.login_credentials["email"]):
+            pass
+        else:
             self.client.headers["authorization"] = "Bearer " + str(self.token)
             self.client.headers["accept"] = "application/json"
 
@@ -370,15 +436,15 @@ class WebsiteTasks(TaskSet):
                 #name="https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/profile/" + self.user_id
             )
     
-
+    @tag('BBB')
     @task
     def bBBTest(self):
         numberRooms = 3
         numberUsers = 6
         host = "https://bbb-1.bbb.staging.messenger.schule"
-        filename = "./SHAREDS.txt"
+        filename = "./requirements_BBB.txt"
         if not os.path.exists(filename):
-            logger.error("File does not exist: " + filename)
+            print.error("File does not exist: " + filename)
             sys.exit(1)
 
         driverWB = webdriver.Chrome('.\chromedriver.exe')
@@ -428,7 +494,6 @@ class WebsiteTasks(TaskSet):
 
             ui_element = "input[id='video-modal-input']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
-            #element.clear()
             element.send_keys('https://player.vimeo.com/video/418854539')
 
             time.sleep(2)
@@ -459,11 +524,7 @@ class WebsiteTasks(TaskSet):
                 element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
                 element.click()
 
-                time.sleep(10) 
-
-                #ui_element = "button[class='play rounded-box state-paused']"
-                #element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
-                #element.click()
+                time.sleep(10)
 
                 countersecond += 1
                 counterTab += 1
@@ -485,10 +546,12 @@ class WebsiteTasks(TaskSet):
             driverWB.quit()
             time.sleep(3)
             counterfirst += 1
-
+    @tag('SC')
     @task
     def newFilesDocx(self):
-        if "schueler" not in str(self.user.login_credentials["email"]):
+        if "schueler" in str(self.user.login_credentials["email"]):
+            pass
+        else:
             data = {
                 "name"          : "Loadtest docx",
                 "type"          : "docx",
@@ -497,10 +560,12 @@ class WebsiteTasks(TaskSet):
             docId = createDoc(self, data)
             deleteDoc(self, docId)
             
-
+    @tag('SC')
     @task
     def newFilesXlsx(self):
-        if "schueler" not in str(self.user.login_credentials["email"]):
+        if "schueler" in str(self.user.login_credentials["email"]):
+            pass
+        else:
             data = {
                 "name"          : "Loadtest xlsx",
                 "type"          : "xlsx",
@@ -508,10 +573,13 @@ class WebsiteTasks(TaskSet):
             }
             docId = createDoc(self, data)
             deleteDoc(self, docId)
-            
+
+    @tag('SC')        
     @task
     def newFilesPptx(self):
-        if "schueler" not in str(self.user.login_credentials["email"]):
+        if "schueler" in str(self.user.login_credentials["email"]):
+            pass
+        else:
             data = {
                 "name"          : "Loadtest pptx",
                 "type"          : "pptx",
@@ -519,7 +587,6 @@ class WebsiteTasks(TaskSet):
             }
             docId = createDoc(self, data)
             deleteDoc(self, docId)
-
 class AdminUser(HttpUser):
     weight = 1
     tasks = [WebsiteTasks]
