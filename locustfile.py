@@ -249,7 +249,7 @@ class WebsiteTasks(TaskSet):
     def courses_add_course(self):
         if "schueler" in str(self.user.login_credentials["email"]):
             pass
-        
+
         else:
             course_data = {
                 "stage"                 :"on",
@@ -279,21 +279,51 @@ class WebsiteTasks(TaskSet):
                     json_object = json.loads(soup.string)
                     courseID = json_object["createdCourse"]["id"]
 
-                    ### Add Tool ###
-                    tool_data = {
-                        "name"          : "bettermarks",
-                        "url"           : "https://acc.bettermarks.com/v1.0/schulcloud/de_ni_staging/login",
-                        "logo_url"      : "https://acc.bettermarks.com/app/assets/bm-logo.png",
-                        "isLocal"       : "true",
-                        "isTemplate"    : "false",
-                        "skipConsent"   : "false",
-                        "originTool"    : "600048b0755565002840fde4",
-                        "courseid"      : courseID
+                    ### Add Etherpads ###
+
+                    thema_data = {
+                        "authority"                         : "staging.niedersachsen.hpi-schul-cloud.org",
+                        "origin"                            : "https://staging.niedersachsen.hpi-schul-cloud.org",
+                        "referer"                           : "https://staging.niedersachsen.hpi-schul-cloud.org/courses/" + courseID + "/tools/add",
+                        "_method"                           : "post",
+                        "position"                          : "",
+                        "courseId"                          : courseID,
+                        "name"                              : "Test1",
+                        "contents[0][title]"                : "Test2",
+                        "contents[0][hidden]"               : "false",
+                        "contents[0][component]"            : "Etherpad",
+                        "contents[0][user]"                 : "",
+                        "contents[0][content][title]"       : "",
+                        "contents[0][content][description]" : "Test3",
+                        "contents[0][content][url]"         : "https://staging.niedersachsen.hpi-schul-cloud.org/etherpad/pi68ca",
+                        "_csrf"                             : self.csrf_token
                     }
-                    
+
                     with self.client.request("POST", 
-                        "/courses/" + courseID + "/tools/add",
-                        data=tool_data,
+                        "/courses/" + courseID + "/topics",
+                        data=thema_data,
+                        catch_response=True, 
+                        allow_redirects=True
+                    ) as response:
+                        if response.status_code != 200:
+                            response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+
+                    ### Add Tool ###          
+                    with self.client.request("POST", 
+                        "/courses/" + str(courseID) + "/tools/add",
+                        headers = {
+                            "accept": "*/*",
+                            "accept-language": "en-US,en;q=0.9",
+                            "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+                            "csrf-token": self.csrf_token,
+                            "sec-ch-ua": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\"",
+                            "sec-ch-ua-mobile": "?0",
+                            "sec-fetch-dest": "empty",
+                            "sec-fetch-mode": "cors",
+                            "sec-fetch-site": "same-origin",
+                            "x-requested-with": "XMLHttpRequest"
+                        },
+                        data = "privacy_permission=anonymous&openNewTab=true&name=bettermarks&url=https://acc.bettermarks.com/Fv1.0/schulcloud/de_ni_staging/login&key=&logo_url=https://acc.bettermarks.com/app/assets/bm-logo.png&isLocal=true&resource_link_id=&lti_version=&lti_message_type=&isTemplate=false&skipConsent=false&createdAt=2021-01-14T13:35:44.689Z&updatedAt=2021-01-14T13:35:44.689Z&__v=0&originTool=600048b0755565002840fde4&courseId=" + str(courseID),
                         catch_response=True, 
                         allow_redirects=True
                     ) as response:
@@ -321,8 +351,7 @@ class WebsiteTasks(TaskSet):
                             "referrer"          : ("https://staging.niedersachsen.hpi-schul-cloud.org/courses/"+ json_object["createdCourse"]["id"] +"/edit"),
                             "Origin"            : "https://staging.niedersachsen.hpi-schul-cloud.org"
                         }
-                    ) as response:
-
+                     ) as response:
                         if response.status_code != 200:
                             response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
 
