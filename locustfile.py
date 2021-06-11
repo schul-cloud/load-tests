@@ -243,7 +243,6 @@ class WebsiteTasks(TaskSet):
     def content(self):
         normalGET(self, "/content/")
 
-    @tag('TEST')
     @tag('SC')
     @task
     def courses_add_course(self):
@@ -395,19 +394,16 @@ class WebsiteTasks(TaskSet):
                 self.client.put(
                     "https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/typing/" + self.user_id,
                     json={"typing": True, "timeout":30000},
-                    #name="https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/typing/" + self.user_id + " - true"
                 )
 
                 self.client.put(
                     "https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/typing/" + self.user_id,
                     json={"typing": False},
-                    #name="https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/typing/" + self.user_id + " - false"
                 )
 
                 with self.client.post(
                     "https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/send/m.room.message",
                     json=message,
-                    #name="https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/send/m.room.message"
                 ) as response:
                     if response.status_code == 200:
                         soup = BeautifulSoup(response.text, "html.parser")
@@ -575,6 +571,8 @@ class WebsiteTasks(TaskSet):
             driverWB.quit()
             time.sleep(3)
             counterfirst += 1
+    
+    @tag('TEST')
     @tag('SC')
     @task
     def newFilesDocx(self):
@@ -587,6 +585,38 @@ class WebsiteTasks(TaskSet):
                 "studentEdit"   : "false"
             }
             docId = createDoc(self, data)
+
+            host = "https://staging.niedersachsen.hpi-schul-cloud.org/files"
+
+            driverWB = webdriver.Chrome('.\chromedriver.exe')
+            driverWB.get(host)
+
+            ui_element = "input[id='name']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            element.send_keys(self.user.login_credentials["email"])
+
+            ui_element = "input[id='password']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            element.send_keys(self.user.login_credentials["password"])
+            
+            ui_element = "input[id='submit-login']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            element.click()
+
+            host = "https://staging.niedersachsen.hpi-schul-cloud.org/files/file/" + docId + "/lool"
+            driverWB.get(host)
+            
+            ui_element = "iframe"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.TAG_NAME, ui_element)))
+            driverWB.switch_to.frame(element)
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.TAG_NAME, ui_element)))
+            driverWB.switch_to.frame(element)
+            element = driverWB.find_element_by_xpath('html/body')
+            element.send_keys("Der Loadtest der loaded den Test")
+
+            time.sleep(2)
+
+            driverWB.quit()
             deleteDoc(self, docId)
             
     @tag('SC')
