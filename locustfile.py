@@ -311,16 +311,16 @@ class WebsiteTasks(TaskSet):
                     with self.client.request("POST", 
                         "/courses/" + str(courseID) + "/tools/add",
                         headers = {
-                            "accept": "*/*",
-                            "accept-language": "en-US,en;q=0.9",
-                            "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-                            "csrf-token": self.csrf_token,
-                            "sec-ch-ua": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\"",
-                            "sec-ch-ua-mobile": "?0",
-                            "sec-fetch-dest": "empty",
-                            "sec-fetch-mode": "cors",
-                            "sec-fetch-site": "same-origin",
-                            "x-requested-with": "XMLHttpRequest"
+                            "accept"            : "*/*",
+                            "accept-language"   : "en-US,en;q=0.9",
+                            "content-type"      : "application/x-www-form-urlencoded; charset=UTF-8",
+                            "csrf-token"        : self.csrf_token,
+                            "sec-ch-ua"         : "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\"",
+                            "sec-ch-ua-mobile"  : "?0",
+                            "sec-fetch-dest"    : "empty",
+                            "sec-fetch-mode"    : "cors",
+                            "sec-fetch-site"    : "same-origin",
+                            "x-requested-with"  : "XMLHttpRequest"
                         },
                         data = "privacy_permission=anonymous&openNewTab=true&name=bettermarks&url=https://acc.bettermarks.com/Fv1.0/schulcloud/de_ni_staging/login&key=&logo_url=https://acc.bettermarks.com/app/assets/bm-logo.png&isLocal=true&resource_link_id=&lti_version=&lti_message_type=&isTemplate=false&skipConsent=false&createdAt=2021-01-14T13:35:44.689Z&updatedAt=2021-01-14T13:35:44.689Z&__v=0&originTool=600048b0755565002840fde4&courseId=" + str(courseID),
                         catch_response=True, 
@@ -569,10 +569,43 @@ class WebsiteTasks(TaskSet):
             driverWB.get(w)
 
             driverWB.quit()
-            time.sleep(3)
+            time.sleep(2)
             counterfirst += 1
     
     @tag('TEST')
+    @tag('SC')
+    @task
+    def newTeam(self):
+        if "schueler" in str(self.user.login_credentials["email"]):
+            pass
+        else:
+            data = {
+                "schoolId" : "5f2987e020834114b8efd6f8",
+                "_method" : "post",
+                "name" : "Loadtest Team",
+                "description" : "Loadtest Team",
+                "messenger" : "true",
+                "rocketChat" : "true",
+                "color" : "#d32f2f",
+                "_csrf" : self.csrf_token
+            }
+
+            with self.client.request(
+                "POST",
+                "https://staging.niedersachsen.hpi-schul-cloud.org/teams/",
+                headers = {
+                    "authority"                 : "staging.niedersachsen.hpi-schul-cloud.org",
+                    "path"                      : "/teams/",
+                    "origin"                    : "https://staging.niedersachsen.hpi-schul-cloud.org",
+                    "referer"                   : "https://staging.niedersachsen.hpi-schul-cloud.org/teams/add"
+                },
+                data = data,
+                catch_response=True, 
+                allow_redirects=True 
+            ) as response:
+                teamId = response
+                print(teamId)
+
     @tag('SC')
     @task
     def newFilesDocx(self):
@@ -614,11 +647,12 @@ class WebsiteTasks(TaskSet):
             element = driverWB.find_element_by_xpath('html/body')
             element.send_keys("Der Loadtest der loaded den Test")
 
-            time.sleep(2)
+            time.sleep(5)
 
             driverWB.quit()
             deleteDoc(self, docId)
-            
+
+    #@tag('TEST')        
     @tag('SC')
     @task
     def newFilesXlsx(self):
@@ -631,8 +665,42 @@ class WebsiteTasks(TaskSet):
                 "studentEdit"   : "false"
             }
             docId = createDoc(self, data)
+
+            host = "https://staging.niedersachsen.hpi-schul-cloud.org/files"
+
+            driverWB = webdriver.Chrome('.\chromedriver.exe')
+            driverWB.get(host)
+
+            ui_element = "input[id='name']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            element.send_keys(self.user.login_credentials["email"])
+
+            ui_element = "input[id='password']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            element.send_keys(self.user.login_credentials["password"])
+            
+            ui_element = "input[id='submit-login']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            element.click()
+
+            host = "https://staging.niedersachsen.hpi-schul-cloud.org/files/file/" + docId + "/lool"
+            driverWB.get(host)
+            
+            ui_element = "iframe"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.TAG_NAME, ui_element)))
+            driverWB.switch_to.frame(element)
+            ui_element = "input[id='formulaInput']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            print(element)
+            element.send_keys("Der Loadtest der loaded den Test")
+
+            time.sleep(5)
+
+            driverWB.quit()
+
             deleteDoc(self, docId)
 
+    #@tag('TEST')
     @tag('SC')        
     @task
     def newFilesPptx(self):
@@ -645,7 +713,41 @@ class WebsiteTasks(TaskSet):
                 "studentEdit"   : "false"
             }
             docId = createDoc(self, data)
-            deleteDoc(self, docId)
+
+            host = "https://staging.niedersachsen.hpi-schul-cloud.org/files"
+
+            driverWB = webdriver.Chrome('.\chromedriver.exe')
+            driverWB.get(host)
+
+            ui_element = "input[id='name']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            element.send_keys(self.user.login_credentials["email"])
+
+            ui_element = "input[id='password']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            element.send_keys(self.user.login_credentials["password"])
+            
+            ui_element = "input[id='submit-login']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            element.click()
+
+            host = "https://staging.niedersachsen.hpi-schul-cloud.org/files/file/" + docId + "/lool"
+            driverWB.get(host)
+            
+            ui_element = "iframe"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.TAG_NAME, ui_element)))
+            driverWB.switch_to.frame(element)
+            ui_element = "iframe[class='resize-detector']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            driverWB.switch_to.frame(element)
+            element = driverWB.find_element_by_xpath('html/body')
+            element.send_keys("Der Loadtest der loaded den Test")
+
+            time.sleep(5)
+
+            driverWB.quit()
+
+            #deleteDoc(self, docId)
 class AdminUser(HttpUser):
     weight = 1
     tasks = [WebsiteTasks]
