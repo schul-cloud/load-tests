@@ -103,6 +103,7 @@ def deleteDoc(session, docId):
 
 
 class WebsiteTasks(TaskSet):
+    TimeToWaitShort = 5
     next_batch = ""
     filter_id = None
     csrf_token = None
@@ -350,7 +351,7 @@ class WebsiteTasks(TaskSet):
                             "referrer"          : ("https://staging.niedersachsen.hpi-schul-cloud.org/courses/"+ json_object["createdCourse"]["id"] +"/edit"),
                             "Origin"            : "https://staging.niedersachsen.hpi-schul-cloud.org"
                         }
-                     ) as response:
+                    ) as response:
                         if response.status_code != 200:
                             response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
 
@@ -507,7 +508,7 @@ class WebsiteTasks(TaskSet):
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.click()
 
-            time.sleep(5)
+            time.sleep(self.wait_time)
             
             ui_element = "tippy-21"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.ID, ui_element)))
@@ -521,7 +522,7 @@ class WebsiteTasks(TaskSet):
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.send_keys('https://player.vimeo.com/video/418854539')
 
-            time.sleep(2)
+            time.sleep(self.wait_time)
 
             ui_element = "button[aria-label='Share a new video']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
@@ -572,7 +573,7 @@ class WebsiteTasks(TaskSet):
             time.sleep(2)
             counterfirst += 1
     
-    @tag('TEST')
+    #@tag('TEST')
     @tag('SC')
     @task
     def newTeam(self):
@@ -603,9 +604,31 @@ class WebsiteTasks(TaskSet):
                 catch_response=True, 
                 allow_redirects=True 
             ) as response:
-                teamId = response
-                print(teamId)
+                soup = BeautifulSoup(response.text, "html.parser")
+                teamIdString = soup.find_all("section", {"class": "section-teams"})
+                teamId = str(teamIdString).partition('\n')[0][41:65]
 
+                with self.client.request("DELETE", 
+                    "/teams/" + teamId + "/" , 
+                    catch_response=True,
+                    allow_redirects=True, 
+                    headers = {
+                        "accept"            : "*/*",
+                        "accept-language"   : "en-US,en;q=0.9",
+                        "csrf-token"        : self.csrf_token,
+                        "sec-fetch-dest"    : "empty",
+                        "sec-fetch-mode"    : "cors",
+                        "sec-fetch-site"    : "same-origin",
+                        "x-requested-with"  : "XMLHttpRequest",
+                        "referrer"          : ("https://staging.niedersachsen.hpi-schul-cloud.org/teams/"+ teamId +"/edit"),
+                        "Origin"            : "https://staging.niedersachsen.hpi-schul-cloud.org"
+                    }
+                ) as response:
+                    if response.status_code != 200:
+                        response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+
+                
+    @tag('TEST')
     @tag('SC')
     @task
     def newFilesDocx(self):
@@ -644,15 +667,16 @@ class WebsiteTasks(TaskSet):
             driverWB.switch_to.frame(element)
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.TAG_NAME, ui_element)))
             driverWB.switch_to.frame(element)
-            element = driverWB.find_element_by_xpath('html/body')
+            time.sleep(self.TimeToWaitShort)
+            ui_element = "html/body"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.XPATH, ui_element)))
             element.send_keys("Der Loadtest der loaded den Test")
-
-            time.sleep(5)
+            time.sleep(self.TimeToWaitShort)
 
             driverWB.quit()
             deleteDoc(self, docId)
 
-    #@tag('TEST')        
+    @tag('TEST')        
     @tag('SC')
     @task
     def newFilesXlsx(self):
@@ -689,18 +713,20 @@ class WebsiteTasks(TaskSet):
             ui_element = "iframe"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.TAG_NAME, ui_element)))
             driverWB.switch_to.frame(element)
+            time.sleep(self.TimeToWaitShort)
             ui_element = "input[id='formulaInput']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
-            print(element)
             element.send_keys("Der Loadtest der loaded den Test")
+            ui_element = "td[id='tb_editbar_item_save']"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
+            element.click()
 
-            time.sleep(5)
+            time.sleep(self.TimeToWaitShort)
 
             driverWB.quit()
-
             deleteDoc(self, docId)
 
-    #@tag('TEST')
+    @tag('TEST')
     @tag('SC')        
     @task
     def newFilesPptx(self):
@@ -740,14 +766,17 @@ class WebsiteTasks(TaskSet):
             ui_element = "iframe[class='resize-detector']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             driverWB.switch_to.frame(element)
-            element = driverWB.find_element_by_xpath('html/body')
+            time.sleep(self.TimeToWaitShort)
+            ui_element = "html/body"
+            element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.XPATH, ui_element)))
             element.send_keys("Der Loadtest der loaded den Test")
 
-            time.sleep(5)
+            time.sleep(self.TimeToWaitShort)
 
             driverWB.quit()
 
-            #deleteDoc(self, docId)
+            deleteDoc(self, docId)
+
 class AdminUser(HttpUser):
     weight = 1
     tasks = [WebsiteTasks]
