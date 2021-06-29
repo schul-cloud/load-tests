@@ -3,7 +3,15 @@ import logging
 import os
 import random
 import sys
+import jwt
+import secrets
+import datetime
+import calendar
+import uuid
+from datetime import timezone
+from unicodedata import name
 from locust.user.task import tag
+from requests.sessions import session
 import yaml
 import time
 import webbrowser
@@ -96,14 +104,49 @@ def deleteDoc(session, docId):
         },
         data = data,
         catch_response = True, 
-        allow_redirects = True
+        allow_redirects = True,
+        name="/files/file/delete"
     ) as response:
         if response.status_code != 200:
             response.failure("Failed! (username: " + session.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
 
 
+def createCourse(session, data):
+    with session.client.request("POST", "/courses/", data=data, catch_response=True, allow_redirects=True) as response:        
+        soup = BeautifulSoup(response.text, "html.parser")
+        if response.status_code != 200:
+            response.failure("Failed! (username: " + session.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+        else:
+            json_object = json.loads(soup.string)
+            courseId = str(json_object["createdCourse"]["id"])
+            return (courseId)
+
+def deleteCourse(session, courseId):
+    with session.client.request("DELETE", 
+        "/courses/" + courseId + "/" , 
+        catch_response=True, 
+        allow_redirects=True,
+        name="/courses/delete",
+        headers = {
+            "accept"            : "*/*",
+            "accept-language"   : "en-US,en;q=0.9",
+            "csrf-token"        : session.csrf_token,
+            "sec-fetch-dest"    : "empty",
+            "sec-fetch-mode"    : "cors",
+            "sec-fetch-site"    : "same-origin",
+            "x-requested-with"  : "XMLHttpRequest",
+            "referrer"          : ("https://staging.niedersachsen.hpi-schul-cloud.org/courses/"+ courseId +"/edit"),
+            "Origin"            : "https://staging.niedersachsen.hpi-schul-cloud.org"
+        }
+    ) as response:
+        if response.status_code != 200:
+            response.failure("Failed! (username: " + session.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+
 class WebsiteTasks(TaskSet):
-    TimeToWaitShort = 5
+    timeToWaitShort = None
+    timeToWaitLong = None
+    bBBKey = None
+    lernstoreKey = None
     next_batch = ""
     filter_id = None
     csrf_token = None
@@ -112,6 +155,17 @@ class WebsiteTasks(TaskSet):
     room_ids = []
     
     def on_start(self):
+
+        filename = "./requirements_Variablen.txt"
+        if not os.path.exists(filename):
+            print.error("File does not exist: " + filename)
+            sys.exit(1)
+        lines = open(filename, 'r').read().splitlines()
+        bBBKey = lines[0].split(';')[1]
+        timeToWaitShort = lines[1].split(';')[1]
+        timeToWaitLong = lines[2].split(';')[1]
+        lernstoreKey = lines[3].split(';')[1]
+
         if self.user.login_credentials == None:
             self.interrupt(reschedule=False)
 
@@ -244,22 +298,25 @@ class WebsiteTasks(TaskSet):
     def content(self):
         normalGET(self, "/content/")
 
+    @tag('TEST')
     @tag('SC')
+    @tag("COURSE")
     @task
-    def courses_add_course(self):
+    def courses_add_Lernstore(self):
         if "schueler" in str(self.user.login_credentials["email"]):
             pass
-
+        
         else:
+            ### Create Course ###
             course_data = {
                 "stage"                 :"on",
                 "_method"               :"post",
                 "schoolId"              :"5f2987e020834114b8efd6f8",
-                "name"                  :"Loadtest",
+                "name"                  :"Loadtest Lernstore",
                 "color"                 :"#ACACAC",
                 "teacherIds"            :"0000d231816abba584714c9e",
                 "startDate"             :"01.08.2020",
-                "untilDate"             :"31.07.2021",
+                "untilDate"             :"31.07.2022",
                 "times[0][weekday]"     : "0",
                 "times[0][startTime]"   : "12:00",
                 "times[0][duration]"    : "90",
@@ -270,90 +327,186 @@ class WebsiteTasks(TaskSet):
                 "times[1][room]"        : "2",
                 "_csrf"                 : self.csrf_token
             }
-            with self.client.request("POST", "/courses/", data=course_data, catch_response=True, allow_redirects=True) as response:
-                
-                soup = BeautifulSoup(response.text, "html.parser")
-                if response.status_code != 200:
-                    response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
-                else:
-                    json_object = json.loads(soup.string)
-                    courseID = json_object["createdCourse"]["id"]
+            
+            courseId = createCourse(self, course_data)
 
-                    ### Add Etherpads ###
+            ### Add Resources ###
+            if "lehrer" in str(self.user.login_credentials["email"]):
+                thema_data = {
+                    "authority"                 : "staging.niedersachsen.hpi-schul-cloud.org",
+                    "origin"                    : "https://staging.niedersachsen.hpi-schul-cloud.org",
+                    "referer"                   : "https://staging.niedersachsen.hpi-schul-cloud.org/courses/" + courseId + "/tools/add",
+                    "_method"                   : "post",
+                    "position"                  : "",
+                    "courseId"                  : courseId,
+                    "name"                      : "Test1",
+                    "contents[0][title]"        : "Test2",
+                    "contents[0][hidden]"       : "false",
+                    "contents[0][component]"    : "resources",
+                    "contents[0][user]"         : "",
+                    "_csrf"                     : self.csrf_token
+                }
 
-                    thema_data = {
-                        "authority"                         : "staging.niedersachsen.hpi-schul-cloud.org",
-                        "origin"                            : "https://staging.niedersachsen.hpi-schul-cloud.org",
-                        "referer"                           : "https://staging.niedersachsen.hpi-schul-cloud.org/courses/" + courseID + "/tools/add",
-                        "_method"                           : "post",
-                        "position"                          : "",
-                        "courseId"                          : courseID,
-                        "name"                              : "Test1",
-                        "contents[0][title]"                : "Test2",
-                        "contents[0][hidden]"               : "false",
-                        "contents[0][component]"            : "Etherpad",
-                        "contents[0][user]"                 : "",
-                        "contents[0][content][title]"       : "",
-                        "contents[0][content][description]" : "Test3",
-                        "contents[0][content][url]"         : "https://staging.niedersachsen.hpi-schul-cloud.org/etherpad/pi68ca",
-                        "_csrf"                             : self.csrf_token
+                with self.client.request("POST", 
+                    "/courses/" + courseId + "/topics",
+                    name="/courses/topics",
+                    data=thema_data,
+                    catch_response=True, 
+                    allow_redirects=True
+                ) as response:
+                    if response.status_code != 200:
+                        response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+
+                    data = {
+                        "client"            : "Schul-Cloud",
+                        "merlinReference"   : "BWS-04983086",
+                        "title"             : "Geschichte der Mathematik - Die Sprache des Universums",
+                        "url"               : "http://merlin.nibis.de/auth.php?identifier=BWS-04983086"
+                    }
+                    
+                    current_datetime = datetime.datetime.utcnow()
+                    current_timetuple = current_datetime.utctimetuple()
+                    current_timestamp = calendar.timegm(current_timetuple)
+                    
+                    print(datetime.datetime.now(timezone.utc))
+                    print(current_datetime)
+                    print(current_timestamp)
+
+                    payload = {
+                        "accountId" : "0000d231816abba584714c9f",
+                        "userId"    : "0000d231816abba584714c9e",
+                        "schoolId"  : "5f2987e020834114b8efd6f8",
+                        "roles"     : ["0000d186816abba584714c98"],
+                        "iat"       : current_timestamp,
+                        "exp"       : current_timestamp + 2592000,
+                        "aud"       : "https://hpi-schul-cloud.de",
+                        "iss"       : "feathers",
+                        "sub"       : "0000d231816abba584714c9f",
+                        "jti"       : str(uuid.uuid4())
                     }
 
-                    with self.client.request("POST", 
-                        "/courses/" + courseID + "/topics",
-                        data=thema_data,
-                        catch_response=True, 
-                        allow_redirects=True
-                    ) as response:
-                        if response.status_code != 200:
-                            response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+                    tokenB = jwt.encode(payload=payload, key=str(self.lernstoreKey), algorithm="HS256", headers={"alg":"HS256","typ":"access"})
+                    
+                    print(tokenB)
 
-                    ### Add Tool ###          
-                    with self.client.request("POST", 
-                        "/courses/" + str(courseID) + "/tools/add",
-                        headers = {
-                            "accept"            : "*/*",
-                            "accept-language"   : "en-US,en;q=0.9",
-                            "content-type"      : "application/x-www-form-urlencoded; charset=UTF-8",
-                            "csrf-token"        : self.csrf_token,
-                            "sec-ch-ua"         : "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\"",
-                            "sec-ch-ua-mobile"  : "?0",
-                            "sec-fetch-dest"    : "empty",
-                            "sec-fetch-mode"    : "cors",
-                            "sec-fetch-site"    : "same-origin",
-                            "x-requested-with"  : "XMLHttpRequest"
-                        },
-                        data = "privacy_permission=anonymous&openNewTab=true&name=bettermarks&url=https://acc.bettermarks.com/Fv1.0/schulcloud/de_ni_staging/login&key=&logo_url=https://acc.bettermarks.com/app/assets/bm-logo.png&isLocal=true&resource_link_id=&lti_version=&lti_message_type=&isTemplate=false&skipConsent=false&createdAt=2021-01-14T13:35:44.689Z&updatedAt=2021-01-14T13:35:44.689Z&__v=0&originTool=600048b0755565002840fde4&courseId=" + str(courseID),
+                    with self.client.request("POST",
+                        "https://api.staging.niedersachsen.hpi-schul-cloud.org/lessons/" + courseId + "/material",
+                        data=data,
+                        name="/lessons/material",
                         catch_response=True, 
-                        allow_redirects=True
-                    ) as response:
-                        with self.client.request("GET",
-                            "https://acc.bettermarks.com/v1.0/schulcloud/de_ni_staging/login",
-                            catch_response=True, 
-                            allow_redirects=True
-                        ) as response:
-                            if response.status_code != 200:
-                                response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
-
-                    ### Delete Course ###
-                    with self.client.request("DELETE", 
-                        "/courses/" + courseID + "/" , 
-                        catch_response=True, 
-                        allow_redirects=True, 
+                        allow_redirects=True,
                         headers = {
-                            "accept"            : "*/*",
-                            "accept-language"   : "en-US,en;q=0.9",
-                            "csrf-token"        : self.csrf_token,
-                            "sec-fetch-dest"    : "empty",
+                            "authority"         : "api.staging.niedersachsen.hpi-schul-cloud.org",
+                            "authorization"     : "Bearer " + tokenB,
+                            "origin"            : "https://staging.niedersachsen.hpi-schul-cloud.org",
+                            "path"  	        : "/lessons/" + courseId + "/material",
+                            "sec-fetch-site"    : "same-site",
                             "sec-fetch-mode"    : "cors",
-                            "sec-fetch-site"    : "same-origin",
-                            "x-requested-with"  : "XMLHttpRequest",
-                            "referrer"          : ("https://staging.niedersachsen.hpi-schul-cloud.org/courses/"+ json_object["createdCourse"]["id"] +"/edit"),
-                            "Origin"            : "https://staging.niedersachsen.hpi-schul-cloud.org"
+                            "sec-fetch-dest"    : "empty",
+                            "sec-ch-ua-moblie"  : "?0",
+                            "sec-ch-ua"         : '" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"'
                         }
                     ) as response:
+                        print(response.text)
                         if response.status_code != 200:
                             response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+            ### Delete Course ###
+            deleteCourse(self, courseId)
+
+
+    #@tag('TEST')
+    @tag('SC')
+    @tag("COURSE")
+    @task
+    def courses_add_course(self):
+        if "schueler" in str(self.user.login_credentials["email"]):
+            pass
+
+        else:
+            ### Create Course ###
+            course_data = {
+                "stage"                 :"on",
+                "_method"               :"post",
+                "schoolId"              :"5f2987e020834114b8efd6f8",
+                "name"                  :"Loadtest",
+                "color"                 :"#ACACAC",
+                "teacherIds"            :"0000d231816abba584714c9e",
+                "startDate"             :"01.08.2020",
+                "untilDate"             :"31.07.2022",
+                "times[0][weekday]"     : "0",
+                "times[0][startTime]"   : "12:00",
+                "times[0][duration]"    : "90",
+                "times[0][room]"        : "1",
+                "times[1][weekday]"     : "2",
+                "times[1][startTime]"   : "12:00",
+                "times[1][duration]"    : "90",
+                "times[1][room]"        : "2",
+                "_csrf"                 : self.csrf_token
+            }
+            
+            courseId = createCourse(self, course_data)
+
+            ### Add Etherpads ###
+            if "lehrer" in str(self.user.login_credentials["email"]):
+                thema_data = {
+                    "authority"                         : "staging.niedersachsen.hpi-schul-cloud.org",
+                    "origin"                            : "https://staging.niedersachsen.hpi-schul-cloud.org",
+                    "referer"                           : "https://staging.niedersachsen.hpi-schul-cloud.org/courses/" + courseId + "/tools/add",
+                    "_method"                           : "post",
+                    "position"                          : "",
+                    "courseId"                          : courseId,
+                    "name"                              : "Test1",
+                    "contents[0][title]"                : "Test2",
+                    "contents[0][hidden]"               : "false",
+                    "contents[0][component]"            : "Etherpad",
+                    "contents[0][user]"                 : "",
+                    "contents[0][content][title]"       : "",
+                    "contents[0][content][description]" : "Test3",
+                    "contents[0][content][url]"         : "https://staging.niedersachsen.hpi-schul-cloud.org/etherpad/pi68ca",
+                    "_csrf"                             : self.csrf_token
+                }
+
+                with self.client.request("POST", 
+                    "/courses/" + courseId + "/topics",
+                    name="/courses/topics",
+                    data=thema_data,
+                    catch_response=True, 
+                    allow_redirects=True
+                ) as response:
+                    if response.status_code != 200:
+                        response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+
+            ### Add Tool ###
+            if "lehrer" in str(self.user.login_credentials["email"]):          
+                with self.client.request("POST", 
+                    "/courses/" + str(courseId) + "/tools/add",
+                    name="/courses/tools/add",
+                    headers = {
+                        "accept"            : "*/*",
+                        "accept-language"   : "en-US,en;q=0.9",
+                        "content-type"      : "application/x-www-form-urlencoded; charset=UTF-8",
+                        "csrf-token"        : self.csrf_token,
+                        "sec-ch-ua"         : "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\"",
+                        "sec-ch-ua-mobile"  : "?0",
+                        "sec-fetch-dest"    : "empty",
+                        "sec-fetch-mode"    : "cors",
+                        "sec-fetch-site"    : "same-origin",
+                        "x-requested-with"  : "XMLHttpRequest"
+                    },
+                    data = "privacy_permission=anonymous&openNewTab=true&name=bettermarks&url=https://acc.bettermarks.com/Fv1.0/schulcloud/de_ni_staging/login&key=&logo_url=https://acc.bettermarks.com/app/assets/bm-logo.png&isLocal=true&resource_link_id=&lti_version=&lti_message_type=&isTemplate=false&skipConsent=false&createdAt=2021-01-14T13:35:44.689Z&updatedAt=2021-01-14T13:35:44.689Z&__v=0&originTool=600048b0755565002840fde4&courseId=" + str(courseId),
+                    catch_response=True, 
+                    allow_redirects=True
+                ) as response:
+                    with self.client.request("GET",
+                        "https://acc.bettermarks.com/v1.0/schulcloud/de_ni_staging/login",
+                        catch_response=True, 
+                        allow_redirects=True
+                    ) as response:
+                        if response.status_code != 200:
+                            response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+
+            ### Delete Course ###
+            deleteCourse(self, courseId)
 
     @tag('MM')
     @task
@@ -468,15 +621,10 @@ class WebsiteTasks(TaskSet):
         numberRooms = 3
         numberUsers = 6
         host = "https://bbb-1.bbb.staging.messenger.schule"
-        filename = "./requirements_BBB.txt"
-        if not os.path.exists(filename):
-            print.error("File does not exist: " + filename)
-            sys.exit(1)
 
         driverWB = webdriver.Chrome('.\chromedriver.exe')
         driverWB.get(host)
 
-        shareds = open(filename, 'r').read()
         counterfirst = 0
         counterTab = 1
         while counterfirst < numberRooms:
@@ -486,7 +634,7 @@ class WebsiteTasks(TaskSet):
             v = "create"
             x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&name=loadtest-" + str(time.time()) + str(counterfirst) + "&moderatorPW=123&attendeePW=456&lockSettingsDisableMic=true"
             y = host + "/bigbluebutton/api/" + v + "?" + x
-            z = str(v) + str(x) + str(shareds)
+            z = str(v) + str(x) + str(self.bBBKey)
             w = str(y) + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
 
             driverWB.get(w)
@@ -496,7 +644,7 @@ class WebsiteTasks(TaskSet):
             v = "join"
             x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&fullName=loadtest-" + str(counterfirst) + "userMLoadtest-" + str(countersecond) + "&userID=loadtest-" + str(counterfirst) + "userMLoadtest-" + str(countersecond) + "&password=123"
             y = host + "/bigbluebutton/api/" + v + "?" + x
-            z = str(v) + str(x) + str(shareds)
+            z = str(v) + str(x) + str(self.bBBKey)
             w = y + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
                 
             windows = driverWB.window_handles
@@ -508,7 +656,7 @@ class WebsiteTasks(TaskSet):
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.click()
 
-            time.sleep(self.wait_time)
+            time.sleep(self.timeToWaitShort)
             
             ui_element = "tippy-21"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.ID, ui_element)))
@@ -522,13 +670,13 @@ class WebsiteTasks(TaskSet):
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.send_keys('https://player.vimeo.com/video/418854539')
 
-            time.sleep(self.wait_time)
+            time.sleep(self.timeToWaitShort)
 
             ui_element = "button[aria-label='Share a new video']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.click()
 
-            time.sleep(10) 
+            time.sleep(self.timeToWaitLong) 
 
             counterTab += 1
             countersecond += 1
@@ -538,7 +686,7 @@ class WebsiteTasks(TaskSet):
                 v = "join"
                 x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&fullName=loadtest-" + str(counterfirst) + "userLoadtest-" + str(countersecond) + "&userID=loadtest-" + str(counterfirst) + "userLoadtest-" + str(countersecond) + "&password=456"
                 y = host + "/bigbluebutton/api/" + v + "?" + x
-                z = str(v) + str(x) + str(shareds)
+                z = str(v) + str(x) + str(self.bBBKey)
                 w = y + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
                 
                 windows = driverWB.window_handles
@@ -550,7 +698,7 @@ class WebsiteTasks(TaskSet):
                 element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
                 element.click()
 
-                time.sleep(10)
+                time.sleep(self.timeToWaitLong)
 
                 countersecond += 1
                 counterTab += 1
@@ -564,7 +712,7 @@ class WebsiteTasks(TaskSet):
             v = "end"
             x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&password=123"
             y = host + "/bigbluebutton/api/" + v + "?" + x
-            z = str(v) + str(x) + str(shareds)
+            z = str(v) + str(x) + str(self.bBBKey)
             w = str(y) + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
             
             driverWB.get(w)
@@ -573,7 +721,6 @@ class WebsiteTasks(TaskSet):
             time.sleep(2)
             counterfirst += 1
     
-    #@tag('TEST')
     @tag('SC')
     @task
     def newTeam(self):
@@ -581,24 +728,24 @@ class WebsiteTasks(TaskSet):
             pass
         else:
             data = {
-                "schoolId" : "5f2987e020834114b8efd6f8",
-                "_method" : "post",
-                "name" : "Loadtest Team",
-                "description" : "Loadtest Team",
-                "messenger" : "true",
-                "rocketChat" : "true",
-                "color" : "#d32f2f",
-                "_csrf" : self.csrf_token
+                "schoolId"      : "5f2987e020834114b8efd6f8",
+                "_method"       : "post",
+                "name"          : "Loadtest Team",
+                "description"   : "Loadtest Team",
+                "messenger"     : "true",
+                "rocketChat"    : "true",
+                "color"         : "#d32f2f",
+                "_csrf"         : self.csrf_token
             }
 
             with self.client.request(
                 "POST",
                 "https://staging.niedersachsen.hpi-schul-cloud.org/teams/",
                 headers = {
-                    "authority"                 : "staging.niedersachsen.hpi-schul-cloud.org",
-                    "path"                      : "/teams/",
-                    "origin"                    : "https://staging.niedersachsen.hpi-schul-cloud.org",
-                    "referer"                   : "https://staging.niedersachsen.hpi-schul-cloud.org/teams/add"
+                    "authority" : "staging.niedersachsen.hpi-schul-cloud.org",
+                    "path"      : "/teams/",
+                    "origin"    : "https://staging.niedersachsen.hpi-schul-cloud.org",
+                    "referer"   : "https://staging.niedersachsen.hpi-schul-cloud.org/teams/add"
                 },
                 data = data,
                 catch_response=True, 
@@ -609,7 +756,8 @@ class WebsiteTasks(TaskSet):
                 teamId = str(teamIdString).partition('\n')[0][41:65]
 
                 with self.client.request("DELETE", 
-                    "/teams/" + teamId + "/" , 
+                    "/teams/" + teamId + "/" ,
+                    name="/teams/delete",
                     catch_response=True,
                     allow_redirects=True, 
                     headers = {
@@ -627,8 +775,7 @@ class WebsiteTasks(TaskSet):
                     if response.status_code != 200:
                         response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
 
-                
-    @tag('TEST')
+
     @tag('SC')
     @task
     def newFilesDocx(self):
@@ -667,16 +814,15 @@ class WebsiteTasks(TaskSet):
             driverWB.switch_to.frame(element)
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.TAG_NAME, ui_element)))
             driverWB.switch_to.frame(element)
-            time.sleep(self.TimeToWaitShort)
+            time.sleep(self.timeToWaitShort)
             ui_element = "html/body"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.XPATH, ui_element)))
             element.send_keys("Der Loadtest der loaded den Test")
-            time.sleep(self.TimeToWaitShort)
+            time.sleep(self.timeToWaitShort)
 
             driverWB.quit()
             deleteDoc(self, docId)
-
-    @tag('TEST')        
+       
     @tag('SC')
     @task
     def newFilesXlsx(self):
@@ -713,7 +859,7 @@ class WebsiteTasks(TaskSet):
             ui_element = "iframe"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.TAG_NAME, ui_element)))
             driverWB.switch_to.frame(element)
-            time.sleep(self.TimeToWaitShort)
+            time.sleep(self.timeToWaitShort)
             ui_element = "input[id='formulaInput']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.send_keys("Der Loadtest der loaded den Test")
@@ -721,12 +867,11 @@ class WebsiteTasks(TaskSet):
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.click()
 
-            time.sleep(self.TimeToWaitShort)
+            time.sleep(self.timeToWaitShort)
 
             driverWB.quit()
             deleteDoc(self, docId)
 
-    @tag('TEST')
     @tag('SC')        
     @task
     def newFilesPptx(self):
@@ -766,12 +911,12 @@ class WebsiteTasks(TaskSet):
             ui_element = "iframe[class='resize-detector']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             driverWB.switch_to.frame(element)
-            time.sleep(self.TimeToWaitShort)
+            time.sleep(self.timeToWaitShort)
             ui_element = "html/body"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.XPATH, ui_element)))
             element.send_keys("Der Loadtest der loaded den Test")
 
-            time.sleep(self.TimeToWaitShort)
+            time.sleep(self.timeToWaitShort)
 
             driverWB.quit()
 
