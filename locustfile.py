@@ -2,6 +2,8 @@ import json
 import logging
 import os
 import random
+from re import M
+import re
 import sys
 import jwt
 import secrets
@@ -69,11 +71,11 @@ def createDoc(session, docdata):
             "x-requested-with"  : "XMLHttpRequest",
             "csrf-token"        : session.csrf_token,
             "Content-Type"      : "application/x-www-form-urlencoded",
-            "Origin"            : "https://staging.niedersachsen.hpi-schul-cloud.org",
+            "Origin"            : session.user.host,
             "Sec-Fetch-Site"    : "same-origin",
             "Sec-Fetch-Mode"    : "cors",
             "Sec-Fetch-Dest"    : "empty",
-            "Referer"           : "https://staging.niedersachsen.hpi-schul-cloud.org/files/my/"
+            "Referer"           : session.user.host + "/files/my/"
         },
         data = docdata,
         catch_response = True, 
@@ -96,11 +98,11 @@ def deleteDoc(session, docId):
             "Connection"        : "keep-alive",
             "x-requested-with"  : "XMLHttpRequest",
             "csrf-token"        : session.csrf_token,
-            "Origin"            : "https://staging.niedersachsen.hpi-schul-cloud.org",
+            "Origin"            : session.user.host,
             "Sec-Fetch-Site"    : "same-origin",
             "Sec-Fetch-Mode"    : "cors",
             "Sec-Fetch-Dest"    : "empty",
-            "Referer"           : "https://staging.niedersachsen.hpi-schul-cloud.org/files/my/"
+            "Referer"           : session.user.host + "/files/my/"
         },
         data = data,
         catch_response = True, 
@@ -135,18 +137,16 @@ def deleteCourse(session, courseId):
             "sec-fetch-mode"    : "cors",
             "sec-fetch-site"    : "same-origin",
             "x-requested-with"  : "XMLHttpRequest",
-            "referrer"          : ("https://staging.niedersachsen.hpi-schul-cloud.org/courses/"+ courseId +"/edit"),
-            "Origin"            : "https://staging.niedersachsen.hpi-schul-cloud.org"
+            "referrer"          : (session.user.host + "/courses/"+ courseId +"/edit"),
+            "Origin"            : session.user.host
         }
     ) as response:
         if response.status_code != 200:
             response.failure("Failed! (username: " + session.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
 
 class WebsiteTasks(TaskSet):
-    timeToWaitShort = None
-    timeToWaitLong = None
-    bBBKey = None
-    lernstoreKey = None
+    timeToWaitShort = int(os.environ.get("TIMELONG"))
+    timeToWaitLong = int(os.environ.get("TIMESHORT"))
     next_batch = ""
     filter_id = None
     csrf_token = None
@@ -155,16 +155,6 @@ class WebsiteTasks(TaskSet):
     room_ids = []
     
     def on_start(self):
-
-        filename = "./requirements_Variablen.txt"
-        if not os.path.exists(filename):
-            print.error("File does not exist: " + filename)
-            sys.exit(1)
-        lines = open(filename, 'r').read().splitlines()
-        bBBKey = lines[0].split(';')[1]
-        timeToWaitShort = lines[1].split(';')[1]
-        timeToWaitLong = lines[2].split(';')[1]
-        lernstoreKey = lines[3].split(';')[1]
 
         if self.user.login_credentials == None:
             self.interrupt(reschedule=False)
@@ -198,115 +188,122 @@ class WebsiteTasks(TaskSet):
         self.client.get("/logout/", allow_redirects=True)
         self.csrf_token = None
 
-    @tag('SC')
+    @tag('sc')
     @task
     def index(self):
         self.client.get("/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def calendar(self):
         normalGET(self, "/calendar/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def account(self):
         normalGET(self, "/account/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def dashboard(self):
         normalGET(self, "/dashboard/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def courses(self):
         normalGET(self, "/courses/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def courses_add(self):
         normalGET(self, "/courses/add/")
     
-    @tag('SC')
+    @tag('sc')
     @task
     def homework(self):
         normalGET(self, "/homework/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def homework_new(self):
         normalGET(self, "/homework/new/")
         
-    @tag('SC')
+    @tag('sc')
     @task
     def homework_asked(self):
         normalGET(self, "/homework/asked/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def homework_private(self):
         normalGET(self, "/homework/private/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def homework_archive(self):
         normalGET(self, "/homework/archive/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def files(self):
         normalGET(self, "/files/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def files_my(self):
         normalGET(self, "/files/my/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def files_courses(self):
         normalGET(self, "/files/courses/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def files_shared(self):
         normalGET(self, "/files/shared/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def files_shared(self):
         normalGET(self, "/files/shared/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def news(self):
         normalGET(self, "/news/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def newsnew(self):
         normalGET(self, "/news/new")
     
-    @tag('SC')
+    @tag('sc')
     @task
     def addons(self):
         normalGET(self, "/addons/")
 
-    @tag('SC')
+    @tag('sc')
     @task
     def content(self):
         normalGET(self, "/content/")
 
-    @tag('TEST')
-    @tag('SC')
-    @tag("COURSE")
+    @tag('test')
+    @tag('sc')
+    @tag('course')
     @task
     def courses_add_Lernstore(self):
+        with self.client.request(
+            "GET",
+            "/",
+            catch_response=True, 
+            allow_redirects=True
+        ) as response:
+            print(response.text)
         if "schueler" in str(self.user.login_credentials["email"]):
             pass
-        
         else:
+            mainHost = self.user.host
             ### Create Course ###
             course_data = {
                 "stage"                 :"on",
@@ -332,10 +329,11 @@ class WebsiteTasks(TaskSet):
 
             ### Add Resources ###
             if "lehrer" in str(self.user.login_credentials["email"]):
+                
                 thema_data = {
-                    "authority"                 : "staging.niedersachsen.hpi-schul-cloud.org",
-                    "origin"                    : "https://staging.niedersachsen.hpi-schul-cloud.org",
-                    "referer"                   : "https://staging.niedersachsen.hpi-schul-cloud.org/courses/" + courseId + "/tools/add",
+                    "authority"                 : mainHost.replace("https://", ""),
+                    "origin"                    : mainHost,
+                    "referer"                   : mainHost + "/courses/" + courseId + "/tools/add",
                     "_method"                   : "post",
                     "position"                  : "",
                     "courseId"                  : courseId,
@@ -367,10 +365,6 @@ class WebsiteTasks(TaskSet):
                     current_datetime = datetime.datetime.utcnow()
                     current_timetuple = current_datetime.utctimetuple()
                     current_timestamp = calendar.timegm(current_timetuple)
-                    
-                    print(datetime.datetime.now(timezone.utc))
-                    print(current_datetime)
-                    print(current_timestamp)
 
                     payload = {
                         "accountId" : "0000d231816abba584714c9f",
@@ -385,9 +379,7 @@ class WebsiteTasks(TaskSet):
                         "jti"       : str(uuid.uuid4())
                     }
 
-                    tokenB = jwt.encode(payload=payload, key=str(self.lernstoreKey), algorithm="HS256", headers={"alg":"HS256","typ":"access"})
-                    
-                    print(tokenB)
+                    tokenB = jwt.encode(payload=payload, key=str(os.environ.get("LERNSTOREKEY")), algorithm="HS256", headers={"alg":"HS256","typ":"access"})
 
                     with self.client.request("POST",
                         "https://api.staging.niedersachsen.hpi-schul-cloud.org/lessons/" + courseId + "/material",
@@ -398,7 +390,7 @@ class WebsiteTasks(TaskSet):
                         headers = {
                             "authority"         : "api.staging.niedersachsen.hpi-schul-cloud.org",
                             "authorization"     : "Bearer " + tokenB,
-                            "origin"            : "https://staging.niedersachsen.hpi-schul-cloud.org",
+                            "origin"            : mainHost,
                             "path"  	        : "/lessons/" + courseId + "/material",
                             "sec-fetch-site"    : "same-site",
                             "sec-fetch-mode"    : "cors",
@@ -414,15 +406,15 @@ class WebsiteTasks(TaskSet):
             deleteCourse(self, courseId)
 
 
-    #@tag('TEST')
-    @tag('SC')
-    @tag("COURSE")
+    #@tag('test')
+    @tag('sc')
+    @tag('course')
     @task
     def courses_add_course(self):
         if "schueler" in str(self.user.login_credentials["email"]):
             pass
-
         else:
+            mainHost = self.user.host
             ### Create Course ###
             course_data = {
                 "stage"                 :"on",
@@ -450,8 +442,8 @@ class WebsiteTasks(TaskSet):
             if "lehrer" in str(self.user.login_credentials["email"]):
                 thema_data = {
                     "authority"                         : "staging.niedersachsen.hpi-schul-cloud.org",
-                    "origin"                            : "https://staging.niedersachsen.hpi-schul-cloud.org",
-                    "referer"                           : "https://staging.niedersachsen.hpi-schul-cloud.org/courses/" + courseId + "/tools/add",
+                    "origin"                            : mainHost,
+                    "referer"                           : mainHost + "/courses/" + courseId + "/tools/add",
                     "_method"                           : "post",
                     "position"                          : "",
                     "courseId"                          : courseId,
@@ -508,7 +500,7 @@ class WebsiteTasks(TaskSet):
             ### Delete Course ###
             deleteCourse(self, courseId)
 
-    @tag('MM')
+    @tag('mm')
     @task
     def message(self):
         txn_id = 0
@@ -516,6 +508,7 @@ class WebsiteTasks(TaskSet):
         if "schueler" in str(self.user.login_credentials["email"]):
             pass
         else:
+            mainHost = "https://matrix.niedersachsen.messenger.schule/_matrix/client"
             self.client.headers["authorization"] = "Bearer " + str(self.token)
             self.client.headers["accept"] = "application/json"
 
@@ -523,8 +516,8 @@ class WebsiteTasks(TaskSet):
                 "timeout": 30000
             }
 
-            name = "https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/sync"
-            response = self.client.get("https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/sync", params=payload)#, name=name)
+            name = mainHost + "/r0/sync"
+            response = self.client.get(mainHost + "/r0/sync", params=payload)#, name=name)
             if response.status_code != 200:
                 return
 
@@ -546,17 +539,17 @@ class WebsiteTasks(TaskSet):
                 }
                         
                 self.client.put(
-                    "https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/typing/" + self.user_id,
+                    mainHost + "/r0/rooms/" + room_id + "/typing/" + self.user_id,
                     json={"typing": True, "timeout":30000},
                 )
 
                 self.client.put(
-                    "https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/typing/" + self.user_id,
+                    mainHost + "/r0/rooms/" + room_id + "/typing/" + self.user_id,
                     json={"typing": False},
                 )
 
                 with self.client.post(
-                    "https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/send/m.room.message",
+                    mainHost + "/r0/rooms/" + room_id + "/send/m.room.message",
                     json=message,
                 ) as response:
                     if response.status_code == 200:
@@ -576,7 +569,7 @@ class WebsiteTasks(TaskSet):
                             "body"          : " * Load Test !"
                         }
                         self.client.post(
-                            "https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/send/m.room.message",
+                            mainHost + "/r0/rooms/" + room_id + "/send/m.room.message",
                             json=data,
                             #name="https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/rooms/" + room_id + "/send/m.room.message"
                         )# as response
@@ -602,22 +595,20 @@ class WebsiteTasks(TaskSet):
                             #    print(response)
                             
 
-            self.client.get("https://matrix.niedersachsen.messenger.schule/_matrix/client/versions")
+            self.client.get(mainHost + "/versions")
 
-            self.client.get("https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/voip/turnServer")
+            self.client.get(mainHost + "/r0/voip/turnServer")
 
-            self.client.get("https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/pushrules/")
+            self.client.get(mainHost + "/r0/pushrules/")
 
-            self.client.get("https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/joined_groups")
+            self.client.get(mainHost + "/r0/joined_groups")
 
-            self.client.get(
-                "https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/profile/" + self.user_id,
-                #name="https://matrix.niedersachsen.messenger.schule/_matrix/client/r0/profile/" + self.user_id
-            )
+            self.client.get(mainHost + "/r0/profile/" + self.user_id)
     
-    @tag('BBB')
+    @tag('bbb')
     @task
     def bBBTest(self):
+        bBBKey = os.environ.get("BBBKEY")
         numberRooms = 3
         numberUsers = 6
         host = "https://bbb-1.bbb.staging.messenger.schule"
@@ -634,7 +625,7 @@ class WebsiteTasks(TaskSet):
             v = "create"
             x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&name=loadtest-" + str(time.time()) + str(counterfirst) + "&moderatorPW=123&attendeePW=456&lockSettingsDisableMic=true"
             y = host + "/bigbluebutton/api/" + v + "?" + x
-            z = str(v) + str(x) + str(self.bBBKey)
+            z = str(v) + str(x) + str(bBBKey)
             w = str(y) + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
 
             driverWB.get(w)
@@ -644,7 +635,7 @@ class WebsiteTasks(TaskSet):
             v = "join"
             x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&fullName=loadtest-" + str(counterfirst) + "userMLoadtest-" + str(countersecond) + "&userID=loadtest-" + str(counterfirst) + "userMLoadtest-" + str(countersecond) + "&password=123"
             y = host + "/bigbluebutton/api/" + v + "?" + x
-            z = str(v) + str(x) + str(self.bBBKey)
+            z = str(v) + str(x) + str(bBBKey)
             w = y + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
                 
             windows = driverWB.window_handles
@@ -686,7 +677,7 @@ class WebsiteTasks(TaskSet):
                 v = "join"
                 x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&fullName=loadtest-" + str(counterfirst) + "userLoadtest-" + str(countersecond) + "&userID=loadtest-" + str(counterfirst) + "userLoadtest-" + str(countersecond) + "&password=456"
                 y = host + "/bigbluebutton/api/" + v + "?" + x
-                z = str(v) + str(x) + str(self.bBBKey)
+                z = str(v) + str(x) + str(bBBKey)
                 w = y + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
                 
                 windows = driverWB.window_handles
@@ -721,12 +712,13 @@ class WebsiteTasks(TaskSet):
             time.sleep(2)
             counterfirst += 1
     
-    @tag('SC')
+    @tag('sc')
     @task
     def newTeam(self):
         if "schueler" in str(self.user.login_credentials["email"]):
             pass
         else:
+            mainHost = self.user.host
             data = {
                 "schoolId"      : "5f2987e020834114b8efd6f8",
                 "_method"       : "post",
@@ -740,12 +732,12 @@ class WebsiteTasks(TaskSet):
 
             with self.client.request(
                 "POST",
-                "https://staging.niedersachsen.hpi-schul-cloud.org/teams/",
+                mainHost + "/teams/",
                 headers = {
-                    "authority" : "staging.niedersachsen.hpi-schul-cloud.org",
+                    "authority" : mainHost.replace("https://", ""),
                     "path"      : "/teams/",
-                    "origin"    : "https://staging.niedersachsen.hpi-schul-cloud.org",
-                    "referer"   : "https://staging.niedersachsen.hpi-schul-cloud.org/teams/add"
+                    "origin"    : mainHost,
+                    "referer"   : mainHost + "/teams/add"
                 },
                 data = data,
                 catch_response=True, 
@@ -768,20 +760,21 @@ class WebsiteTasks(TaskSet):
                         "sec-fetch-mode"    : "cors",
                         "sec-fetch-site"    : "same-origin",
                         "x-requested-with"  : "XMLHttpRequest",
-                        "referrer"          : ("https://staging.niedersachsen.hpi-schul-cloud.org/teams/"+ teamId +"/edit"),
-                        "Origin"            : "https://staging.niedersachsen.hpi-schul-cloud.org"
+                        "referrer"          : (mainHost + "/teams/" + teamId + "/edit"),
+                        "Origin"            : mainHost
                     }
                 ) as response:
                     if response.status_code != 200:
                         response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
 
-
-    @tag('SC')
+    @tag('doc')
+    @tag('sc')
     @task
     def newFilesDocx(self):
         if "schueler" in str(self.user.login_credentials["email"]):
             pass
         else:
+            mainHost = self.user.host
             data = {
                 "name"          : "Loadtest docx",
                 "type"          : "docx",
@@ -789,7 +782,7 @@ class WebsiteTasks(TaskSet):
             }
             docId = createDoc(self, data)
 
-            host = "https://staging.niedersachsen.hpi-schul-cloud.org/files"
+            host = mainHost + "/files"
 
             driverWB = webdriver.Chrome('.\chromedriver.exe')
             driverWB.get(host)
@@ -806,7 +799,7 @@ class WebsiteTasks(TaskSet):
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.click()
 
-            host = "https://staging.niedersachsen.hpi-schul-cloud.org/files/file/" + docId + "/lool"
+            host = mainHost + "/files/file/" + docId + "/lool"
             driverWB.get(host)
             
             ui_element = "iframe"
@@ -823,12 +816,14 @@ class WebsiteTasks(TaskSet):
             driverWB.quit()
             deleteDoc(self, docId)
        
-    @tag('SC')
+    @tag('doc')
+    @tag('sc')
     @task
     def newFilesXlsx(self):
         if "schueler" in str(self.user.login_credentials["email"]):
             pass
         else:
+            mainHost = self.user.host
             data = {
                 "name"          : "Loadtest xlsx",
                 "type"          : "xlsx",
@@ -836,7 +831,7 @@ class WebsiteTasks(TaskSet):
             }
             docId = createDoc(self, data)
 
-            host = "https://staging.niedersachsen.hpi-schul-cloud.org/files"
+            host = mainHost + "/files"
 
             driverWB = webdriver.Chrome('.\chromedriver.exe')
             driverWB.get(host)
@@ -853,7 +848,7 @@ class WebsiteTasks(TaskSet):
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.click()
 
-            host = "https://staging.niedersachsen.hpi-schul-cloud.org/files/file/" + docId + "/lool"
+            host = mainHost + "/files/file/" + docId + "/lool"
             driverWB.get(host)
             
             ui_element = "iframe"
@@ -872,12 +867,14 @@ class WebsiteTasks(TaskSet):
             driverWB.quit()
             deleteDoc(self, docId)
 
-    @tag('SC')        
+    @tag('doc')
+    @tag('sc')        
     @task
     def newFilesPptx(self):
         if "schueler" in str(self.user.login_credentials["email"]):
             pass
         else:
+            mainHost = self.user.host
             data = {
                 "name"          : "Loadtest pptx",
                 "type"          : "pptx",
@@ -885,7 +882,7 @@ class WebsiteTasks(TaskSet):
             }
             docId = createDoc(self, data)
 
-            host = "https://staging.niedersachsen.hpi-schul-cloud.org/files"
+            host = mainHost + "/files"
 
             driverWB = webdriver.Chrome('.\chromedriver.exe')
             driverWB.get(host)
@@ -902,7 +899,7 @@ class WebsiteTasks(TaskSet):
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.click()
 
-            host = "https://staging.niedersachsen.hpi-schul-cloud.org/files/file/" + docId + "/lool"
+            host = mainHost + "/files/file/" + docId + "/lool"
             driverWB.get(host)
             
             ui_element = "iframe"
@@ -919,7 +916,7 @@ class WebsiteTasks(TaskSet):
             time.sleep(self.timeToWaitShort)
 
             driverWB.quit()
-
+            
             deleteDoc(self, docId)
 
 class AdminUser(HttpUser):
