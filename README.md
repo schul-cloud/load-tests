@@ -5,7 +5,7 @@ Load tests for HPI Schul-Cloud application.
 ## Requirements
 
 - Python (>= 3.6.10)
-- ChromeDriver (>= 90.0.4430.24, just necessary for BBB-Loadtest)
+- ChromeDriver (>= 90.0.4430.24, just necessary for BBB-Loadtest and Doc test)
 - Docker (>= 19.03.5, optional)
 
 The ChromeDriver.exe needs to be in the same path as the python-File.
