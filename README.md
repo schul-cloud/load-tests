@@ -8,7 +8,7 @@ Load tests for HPI Schul-Cloud application.
 - ChromeDriver (>= 90.0.4430.24, just necessary for BBB-Loadtest)
 - Docker (>= 19.03.5, optional)
 
-The ChromeDriver needs to be in the same path as the python-File.
+The ChromeDriver.exe needs to be in the same path as the python-File.
 
 Create a YAML file with user credentials (email, password). Filename should be `users_${HOSTNAME}.yaml`.
 
@@ -26,7 +26,11 @@ pupil:
   - email: schueler@schul-cloud.org
     password: baz
 ```
-Create a TXT file with just the BBB-Key. Filename should be `requirements_BBB.txt`.
+Create new environment system variables:
+BBBKEY        : BigBlueButton Key
+LERNSTOREKEY  : Lernstorekey
+TIMELONG      : Long Time to wait (10 sec)
+TIMESHORT     : Short Time to wait (5 sec)
 
 ## Run the load tests
 
