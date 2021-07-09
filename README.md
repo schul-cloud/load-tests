@@ -26,11 +26,14 @@ pupil:
   - email: schueler@schul-cloud.org
     password: baz
 ```
+
 Create new environment system variables:
+```
 BBBKEY        : BigBlueButton Key
 LERNSTOREKEY  : Lernstorekey
 TIMELONG      : Long Time to wait (10 sec)
 TIMESHORT     : Short Time to wait (5 sec)
+```
 
 ## Run the load tests
 
