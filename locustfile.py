@@ -4,6 +4,7 @@ import os
 import random
 from re import M
 import re
+import requests
 import sys
 import jwt
 import secrets
@@ -18,6 +19,7 @@ import yaml
 import time
 import webbrowser
 import hashlib
+import base64
 
 from selenium import webdriver
 from selenium.common.exceptions import (ElementClickInterceptedException, NoSuchWindowException)
@@ -150,9 +152,13 @@ class WebsiteTasks(TaskSet):
     next_batch = ""
     filter_id = None
     csrf_token = None
-    token = None
+    bearer_token = None
     user_id = None
-    room_ids = []
+    school_id = None
+    account_id = None
+    roles_id = None
+    iat = None
+    jti = None
     
     def on_start(self):
 
@@ -173,16 +179,16 @@ class WebsiteTasks(TaskSet):
                 if (login_post_response.status_code != 302) or not login_post_response.headers.get('location').startswith("/login/success"):
                     login_post_response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(login_post_response.status_code)+", header: "+str(login_post_response.headers)+")")
                 else:
-                    with self.client.request("GET", "/messenger/token", catch_response=True, allow_redirects=False) as response:
-                        if(response.status_code == 200):
-                            i = json.loads(response.text)
-                            self.token = i["accessToken"]
-                            self.user_id = i["userId"]
-                    with self.client.get("/courses/" , catch_response=True, allow_redirects=True) as response:
-                        if(response.status_code == 200):
-                            soup = BeautifulSoup(response.text, "html.parser")
-                            for room_id in soup.find_all('article'):
-                                self.room_ids.append(room_id.get('data-loclink').removeprefix("/courses/"))
+                    response_header = login_post_response.headers
+                    self.bearer_token = (response_header["set-cookie"]).split(";")[0].replace("jwt=", "")
+                    decoded_token = base64.b64decode(self.bearer_token[0:461])                 
+                    decoded_token_json = json.loads(decoded_token.decode('utf_8').removeprefix('{"alg":"HS256","typ":"access"}'))
+                    self.user_id = decoded_token_json["userId"]
+                    self.school_id = decoded_token_json["schoolId"]
+                    self.account_id = decoded_token_json["accountId"]
+                    self.roles_id = decoded_token_json["roles"]
+                    self.iat = decoded_token_json["iat"]
+                    self.jti = decoded_token_json["jti"]
 
     def on_stop(self):
         self.client.get("/logout/", allow_redirects=True)
@@ -216,7 +222,10 @@ class WebsiteTasks(TaskSet):
     @tag('sc')
     @task
     def courses_add(self):
-        normalGET(self, "/courses/add/")
+        if isinstance(self._user, PupilUser):
+            pass
+        else:
+            normalGET(self, "/courses/add/")
     
     @tag('sc')
     @task
@@ -293,27 +302,20 @@ class WebsiteTasks(TaskSet):
     @tag('course')
     @task
     def courses_add_Lernstore(self):
-        with self.client.request(
-            "GET",
-            "/",
-            catch_response=True, 
-            allow_redirects=True
-        ) as response:
-            print(response.text)
-        if "schueler" in str(self.user.login_credentials["email"]):
+        if isinstance(self._user, PupilUser):
             pass
         else:
             mainHost = self.user.host
             ### Create Course ###
             course_data = {
-                "stage"                 :"on",
-                "_method"               :"post",
-                "schoolId"              :"5f2987e020834114b8efd6f8",
-                "name"                  :"Loadtest Lernstore",
-                "color"                 :"#ACACAC",
-                "teacherIds"            :"0000d231816abba584714c9e",
-                "startDate"             :"01.08.2020",
-                "untilDate"             :"31.07.2022",
+                "stage"                 : "on",
+                "_method"               : "post",
+                "schoolId"              : self.school_id,
+                "name"                  : "Loadtest Lernstore",
+                "color"                 : "#ACACAC",
+                "teacherIds"            : self.user_id,
+                "startDate"             : "01.08.2020",
+                "untilDate"             : "31.07.2022",
                 "times[0][weekday]"     : "0",
                 "times[0][startTime]"   : "12:00",
                 "times[0][duration]"    : "90",
@@ -328,8 +330,7 @@ class WebsiteTasks(TaskSet):
             courseId = createCourse(self, course_data)
 
             ### Add Resources ###
-            if "lehrer" in str(self.user.login_credentials["email"]):
-                
+            if isinstance(self._user, TeacherUser):  
                 thema_data = {
                     "authority"                 : mainHost.replace("https://", ""),
                     "origin"                    : mainHost,
@@ -367,19 +368,31 @@ class WebsiteTasks(TaskSet):
                     current_timestamp = calendar.timegm(current_timetuple)
 
                     payload = {
-                        "accountId" : "0000d231816abba584714c9f",
-                        "userId"    : "0000d231816abba584714c9e",
-                        "schoolId"  : "5f2987e020834114b8efd6f8",
-                        "roles"     : ["0000d186816abba584714c98"],
+                        "accountId" : self.account_id,
+                        "userId"    : self.user_id,
+                        "schoolId"  : self.school_id,
+                        "roles"     : self.roles_id,
                         "iat"       : current_timestamp,
                         "exp"       : current_timestamp + 2592000,
                         "aud"       : "https://hpi-schul-cloud.de",
                         "iss"       : "feathers",
-                        "sub"       : "0000d231816abba584714c9f",
-                        "jti"       : str(uuid.uuid4())
+                        "sub"       : self.account_id,
+                        "jti"       : self.jti #str(uuid.uuid4())
                     }
+                    #print(payload)
+                    #payload = json.dumps(payload).encode('utf-8')
+                    #print(payload)
+                    #payload = payload.decode('utf-8')
+                    #print(payload)
 
-                    tokenB = jwt.encode(payload=payload, key=str(os.environ.get("LERNSTOREKEY")), algorithm="HS256", headers={"alg":"HS256","typ":"access"})
+                    tokenB = jwt.encode(
+                        payload,
+                        key=str(os.environ.get("LERNSTOREKEY")), 
+                        algorithm='HS256',
+                        headers= {"alg":"HS256","typ":"access"}
+                    )
+
+                    print(tokenB)
 
                     with self.client.request("POST",
                         "https://api.staging.niedersachsen.hpi-schul-cloud.org/lessons/" + courseId + "/material",
@@ -399,9 +412,9 @@ class WebsiteTasks(TaskSet):
                             "sec-ch-ua"         : '" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"'
                         }
                     ) as response:
-                        print(response.text)
                         if response.status_code != 200:
                             response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+            
             ### Delete Course ###
             deleteCourse(self, courseId)
 
@@ -411,20 +424,20 @@ class WebsiteTasks(TaskSet):
     @tag('course')
     @task
     def courses_add_course(self):
-        if "schueler" in str(self.user.login_credentials["email"]):
+        if isinstance(self._user, PupilUser):
             pass
         else:
             mainHost = self.user.host
             ### Create Course ###
             course_data = {
-                "stage"                 :"on",
-                "_method"               :"post",
-                "schoolId"              :"5f2987e020834114b8efd6f8",
-                "name"                  :"Loadtest",
-                "color"                 :"#ACACAC",
-                "teacherIds"            :"0000d231816abba584714c9e",
-                "startDate"             :"01.08.2020",
-                "untilDate"             :"31.07.2022",
+                "stage"                 : "on",
+                "_method"               : "post",
+                "schoolId"              : self.school_id,
+                "name"                  : "Loadtest",
+                "color"                 : "#ACACAC",
+                "teacherIds"            : self.user_id,
+                "startDate"             : "01.08.2020",
+                "untilDate"             : "31.07.2022",
                 "times[0][weekday]"     : "0",
                 "times[0][startTime]"   : "12:00",
                 "times[0][duration]"    : "90",
@@ -439,7 +452,7 @@ class WebsiteTasks(TaskSet):
             courseId = createCourse(self, course_data)
 
             ### Add Etherpads ###
-            if "lehrer" in str(self.user.login_credentials["email"]):
+            if isinstance(self._user, TeacherUser):
                 thema_data = {
                     "authority"                         : "staging.niedersachsen.hpi-schul-cloud.org",
                     "origin"                            : mainHost,
@@ -454,7 +467,7 @@ class WebsiteTasks(TaskSet):
                     "contents[0][user]"                 : "",
                     "contents[0][content][title]"       : "",
                     "contents[0][content][description]" : "Test3",
-                    "contents[0][content][url]"         : "https://staging.niedersachsen.hpi-schul-cloud.org/etherpad/pi68ca",
+                    "contents[0][content][url]"         : mainHost + "/etherpad/pi68ca",
                     "_csrf"                             : self.csrf_token
                 }
 
@@ -468,8 +481,7 @@ class WebsiteTasks(TaskSet):
                     if response.status_code != 200:
                         response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
 
-            ### Add Tool ###
-            if "lehrer" in str(self.user.login_credentials["email"]):          
+                ### Add Tool ###          
                 with self.client.request("POST", 
                     "/courses/" + str(courseId) + "/tools/add",
                     name="/courses/tools/add",
@@ -505,9 +517,21 @@ class WebsiteTasks(TaskSet):
     def message(self):
         txn_id = 0
 
-        if "schueler" in str(self.user.login_credentials["email"]):
+        if isinstance(self._user, PupilUser):
             pass
         else:
+            with self.client.request("GET", "/messenger/token", catch_response=True, allow_redirects=False) as response:
+                        if(response.status_code == 200):
+                            i = json.loads(response.text)
+                            self.token = i["accessToken"]
+                            self.user_id = i["userId"]
+
+            room_ids = None                
+            with self.client.get("/courses/" , catch_response=True, allow_redirects=True) as response:
+                if(response.status_code == 200):
+                    soup = BeautifulSoup(response.text, "html.parser")
+                    for room_id in soup.find_all('article'):
+                        room_ids.append(room_id.get('data-loclink').removeprefix("/courses/"))
             mainHost = "https://matrix.niedersachsen.messenger.schule/_matrix/client"
             self.client.headers["authorization"] = "Bearer " + str(self.token)
             self.client.headers["accept"] = "application/json"
@@ -715,12 +739,12 @@ class WebsiteTasks(TaskSet):
     @tag('sc')
     @task
     def newTeam(self):
-        if "schueler" in str(self.user.login_credentials["email"]):
+        if isinstance(self._user, PupilUser):
             pass
         else:
             mainHost = self.user.host
             data = {
-                "schoolId"      : "5f2987e020834114b8efd6f8",
+                "schoolId"      : self.school_id,
                 "_method"       : "post",
                 "name"          : "Loadtest Team",
                 "description"   : "Loadtest Team",
@@ -771,7 +795,7 @@ class WebsiteTasks(TaskSet):
     @tag('sc')
     @task
     def newFilesDocx(self):
-        if "schueler" in str(self.user.login_credentials["email"]):
+        if isinstance(self._user, PupilUser):
             pass
         else:
             mainHost = self.user.host
@@ -820,7 +844,7 @@ class WebsiteTasks(TaskSet):
     @tag('sc')
     @task
     def newFilesXlsx(self):
-        if "schueler" in str(self.user.login_credentials["email"]):
+        if isinstance(self._user, PupilUser):
             pass
         else:
             mainHost = self.user.host
@@ -871,7 +895,7 @@ class WebsiteTasks(TaskSet):
     @tag('sc')        
     @task
     def newFilesPptx(self):
-        if "schueler" in str(self.user.login_credentials["email"]):
+        if isinstance(self._user, PupilUser):
             pass
         else:
             mainHost = self.user.host
