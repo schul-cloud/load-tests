@@ -30,8 +30,6 @@ from locust import HttpUser, TaskSet, between, task
 from locust.exception import LocustError, CatchResponseError, ResponseError
 from urllib.parse import urlparse
 
-# Martin Test
-
 def is_static_file(f):
     if f.endswith(".css") or f.endswith(".png"):
         return True
