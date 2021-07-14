@@ -18,6 +18,7 @@ import yaml
 import time
 import webbrowser
 import hashlib
+import requests
 
 from selenium import webdriver
 from selenium.common.exceptions import (ElementClickInterceptedException, NoSuchWindowException)
@@ -143,6 +144,28 @@ def deleteCourse(session, courseId):
     ) as response:
         if response.status_code != 200:
             response.failure("Failed! (username: " + session.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+
+# Abruf der API, Domain und nuxtversion der SchulCloud über get-request
+# [MN, OPS-2471]
+def requestWithoutUser(api_domain, domain, nuxt_domain):
+    api_req = requests.get(api_domain)
+    req = requests.get(domain)
+    nuxt_req = requests.get(nuxt_domain)
+
+    if api_req.status_code != 200:
+        print("api_req failed")
+    else:
+        print("api_req successful")
+
+    if req.status_code != 200:
+        print("req failed")
+    else:
+        print("req successful")
+
+    if nuxt_req.status_code != 200:
+        print("nuxt_req failed")
+    else:
+        print("nuxt_req successful")
 
 class WebsiteTasks(TaskSet):
     timeToWaitShort = int(os.environ.get("TIMELONG"))
