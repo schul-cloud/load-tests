@@ -145,27 +145,26 @@ def deleteCourse(session, courseId):
         if response.status_code != 200:
             response.failure("Failed! (username: " + session.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
 
-# Abruf der API, Domain und nuxtversion der SchulCloud über get-request
-# [MN, OPS-2471]
-def requestWithoutUser(api_domain, domain, nuxt_domain):
-    api_req = requests.get(api_domain)
-    req = requests.get(domain)
-    nuxt_req = requests.get(nuxt_domain)
+# Request of API, domain and nuxtversion of a supplied domain without a user.
+def requestWithoutUser(domain):
+    api_req = requests.get(f"api.{domain}/version")
+    req = requests.get(f"{domain}/version")
+    nuxt_req = requests.get(f"{domain}/nuxtversion")
 
     if api_req.status_code != 200:
-        print("api_req failed")
+        print(f"api_req failed : {api_req}")
     else:
-        print("api_req successful")
+        print(api_req)
 
     if req.status_code != 200:
-        print("req failed")
+        print(f"req failed : {req}")
     else:
-        print("req successful")
+        print(req)
 
     if nuxt_req.status_code != 200:
-        print("nuxt_req failed")
+        print(f"nuxt_req failed : {nuxt_req}")
     else:
-        print("nuxt_req successful")
+        print(nuxt_req)
 
 class WebsiteTasks(TaskSet):
     timeToWaitShort = int(os.environ.get("TIMELONG"))
