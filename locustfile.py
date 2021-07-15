@@ -39,6 +39,7 @@ def is_static_file(f):
         return False
 
 def fetch_static_assets(session, response):
+    #Scans the hmtl-page for Js and Css Files and requests the single urls/files
     resource_urls = set()
     soup = BeautifulSoup(response.text, "html.parser")
 
@@ -59,12 +60,13 @@ def fetch_static_assets(session, response):
 
 def normalGET(session, url):
     with session.client.get(url, catch_response=True, allow_redirects=True) as response:
-            if response.status_code != 200:
-                response.failure("Failed! (username: " + session.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
-            else:
-                fetch_static_assets(session, response)
+        if response.status_code != 200:
+            response.failure("Failed! (username: " + session.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+        else:
+            fetch_static_assets(session, response)
 
 def createDoc(session, docdata):
+    #Creates an doc at the Schulcloud website
     with session.client.request(   
         "POST",
         "/files/newFile",
@@ -90,6 +92,7 @@ def createDoc(session, docdata):
             
 
 def deleteDoc(session, docId):
+    #Deletes an doc at the Schulcloud website
     data = {
         "id" : docId
     }
@@ -161,7 +164,8 @@ class WebsiteTasks(TaskSet):
     jti = None
     
     def on_start(self):
-
+        # First task. Gets csrf token from login html website and logs in. 
+        # Gets bearer token after login from the response header and extracts specific informations for further progress.
         if self.user.login_credentials == None:
             self.interrupt(reschedule=False)
 
@@ -346,6 +350,7 @@ class WebsiteTasks(TaskSet):
                     "_csrf"                     : self.csrf_token
                 }
 
+                # Adding a theme to the course to be able to add material from the Lernstore
                 with self.client.request("POST", 
                     "/courses/" + courseId + "/topics",
                     name="/courses/topics",
@@ -356,6 +361,7 @@ class WebsiteTasks(TaskSet):
                     if response.status_code != 200:
                         response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
 
+                    # Request to the Lernstore to get the internal id of the course
                     with self.client.request("GET",
                         "https://api.staging.niedersachsen.hpi-schul-cloud.org/lessons?courseId=" + courseId,
                         name="/lessons?courseId=",
@@ -385,6 +391,7 @@ class WebsiteTasks(TaskSet):
                             "merlinReference":"BWS-04983086"
                         }
 
+                        # Adding a material from the Lernstore to the course
                         with self.client.request("POST",
                             "https://api.staging.niedersachsen.hpi-schul-cloud.org/lessons/" + courseId_Lernstore + "/material",
                             data=json.dumps(data),
