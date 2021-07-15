@@ -519,10 +519,11 @@ class WebsiteTasks(TaskSet):
     @task
     def message(self):
         txn_id = 0
-
+        # Posts and edits messages at the Matrix Messenger
         if isinstance(self._user, PupilUser):
             pass
         else:
+            mainHost = os.environ.get("MMHOST")
             with self.client.request("GET", "/messenger/token", catch_response=True, allow_redirects=False) as response:
                         if(response.status_code == 200):
                             i = json.loads(response.text)
@@ -535,7 +536,7 @@ class WebsiteTasks(TaskSet):
                     soup = BeautifulSoup(response.text, "html.parser")
                     for room_id in soup.find_all('article'):
                         room_ids.append(room_id.get('data-loclink').removeprefix("/courses/"))
-            mainHost = "https://matrix.niedersachsen.messenger.schule/_matrix/client"
+
             self.client.headers["authorization"] = "Bearer " + str(self.token)
             self.client.headers["accept"] = "application/json"
 
@@ -638,8 +639,9 @@ class WebsiteTasks(TaskSet):
         bBBKey = os.environ.get("BBBKEY")
         numberRooms = 3
         numberUsers = 6
-        host = "https://bbb-1.bbb.staging.messenger.schule"
+        host = os.environ.get("BBBHOST")
 
+        #Starts a chrome Browser
         driverWB = webdriver.Chrome('.\chromedriver.exe')
         driverWB.get(host)
 
@@ -648,7 +650,7 @@ class WebsiteTasks(TaskSet):
         while counterfirst < numberRooms:
             
             timestamp = str(time.time())
-
+            # Creates a BBB-Room with a password
             v = "create"
             x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&name=loadtest-" + str(time.time()) + str(counterfirst) + "&moderatorPW=123&attendeePW=456&lockSettingsDisableMic=true"
             y = host + "/bigbluebutton/api/" + v + "?" + x
@@ -659,6 +661,7 @@ class WebsiteTasks(TaskSet):
 
             countersecond = 0
 
+            # Moderator joins the room on a new Tab
             v = "join"
             x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&fullName=loadtest-" + str(counterfirst) + "userMLoadtest-" + str(countersecond) + "&userID=loadtest-" + str(counterfirst) + "userMLoadtest-" + str(countersecond) + "&password=123"
             y = host + "/bigbluebutton/api/" + v + "?" + x
@@ -670,26 +673,31 @@ class WebsiteTasks(TaskSet):
             driverWB.switch_to.window(driverWB.window_handles[counterTab])
             driverWB.get(w)
 
+            # Chooses to join the room with "Listen only"
             ui_element = "button[aria-label='Listen only']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.click()
 
             time.sleep(self.timeToWaitShort)
             
+            # Clicks on the Plussign
             ui_element = "tippy-21"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.ID, ui_element)))
             element.click()
 
+            # Clicks on the "Share external Video" button
             ui_element = "li[aria-labelledby='dropdown-item-label-26']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.click()
 
+            # Inserts Videolink
             ui_element = "input[id='video-modal-input']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.send_keys('https://player.vimeo.com/video/418854539')
 
             time.sleep(self.timeToWaitShort)
 
+            # Clicks on the button "Share a new video"
             ui_element = "button[aria-label='Share a new video']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.click()
@@ -701,12 +709,14 @@ class WebsiteTasks(TaskSet):
             
             while countersecond < numberUsers:
                 
+                # Normal User joins the room
                 v = "join"
                 x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&fullName=loadtest-" + str(counterfirst) + "userLoadtest-" + str(countersecond) + "&userID=loadtest-" + str(counterfirst) + "userLoadtest-" + str(countersecond) + "&password=456"
                 y = host + "/bigbluebutton/api/" + v + "?" + x
                 z = str(v) + str(x) + str(bBBKey)
                 w = y + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
                 
+                # changes the browsertab
                 windows = driverWB.window_handles
                 driverWB.execute_script("window.open('');")
                 driverWB.switch_to.window(driverWB.window_handles[counterTab])
@@ -726,7 +736,7 @@ class WebsiteTasks(TaskSet):
         counterfirst = 0
         time.sleep(30)
         while counterfirst < numberRooms:
-            
+            # Closes all the rooms
             v = "end"
             x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&password=123"
             y = host + "/bigbluebutton/api/" + v + "?" + x
@@ -735,9 +745,10 @@ class WebsiteTasks(TaskSet):
             
             driverWB.get(w)
 
-            driverWB.quit()
             time.sleep(2)
             counterfirst += 1
+        
+        driverWB.quit()
     
     @tag('sc')
     @task
@@ -757,6 +768,7 @@ class WebsiteTasks(TaskSet):
                 "_csrf"         : self.csrf_token
             }
 
+            # Creates a team
             with self.client.request(
                 "POST",
                 mainHost + "/teams/",
@@ -774,6 +786,7 @@ class WebsiteTasks(TaskSet):
                 teamIdString = soup.find_all("section", {"class": "section-teams"})
                 teamId = str(teamIdString).partition('\n')[0][41:65]
 
+                # Deletes a team
                 with self.client.request("DELETE", 
                     "/teams/" + teamId + "/" ,
                     name="/teams/delete",
@@ -813,7 +826,8 @@ class WebsiteTasks(TaskSet):
 
             driverWB = webdriver.Chrome('.\chromedriver.exe')
             driverWB.get(host)
-
+            
+            # Login User
             ui_element = "input[id='name']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.send_keys(self.user.login_credentials["email"])
@@ -829,15 +843,20 @@ class WebsiteTasks(TaskSet):
             host = mainHost + "/files/file/" + docId + "/lool"
             driverWB.get(host)
             
+            # Switch to editorframe
             ui_element = "iframe"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.TAG_NAME, ui_element)))
             driverWB.switch_to.frame(element)
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.TAG_NAME, ui_element)))
             driverWB.switch_to.frame(element)
+            
             time.sleep(self.timeToWaitShort)
+            
+            # Edit Doc  
             ui_element = "html/body"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.XPATH, ui_element)))
             element.send_keys("Der Loadtest der loaded den Test")
+            
             time.sleep(self.timeToWaitShort)
 
             driverWB.quit()
@@ -863,6 +882,7 @@ class WebsiteTasks(TaskSet):
             driverWB = webdriver.Chrome('.\chromedriver.exe')
             driverWB.get(host)
 
+            # Login User
             ui_element = "input[id='name']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.send_keys(self.user.login_credentials["email"])
@@ -878,10 +898,14 @@ class WebsiteTasks(TaskSet):
             host = mainHost + "/files/file/" + docId + "/lool"
             driverWB.get(host)
             
+            # Switch to editorframe
             ui_element = "iframe"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.TAG_NAME, ui_element)))
             driverWB.switch_to.frame(element)
+            
             time.sleep(self.timeToWaitShort)
+            
+            # Edit Doc
             ui_element = "input[id='formulaInput']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.send_keys("Der Loadtest der loaded den Test")
@@ -914,6 +938,7 @@ class WebsiteTasks(TaskSet):
             driverWB = webdriver.Chrome('.\chromedriver.exe')
             driverWB.get(host)
 
+            # Login User
             ui_element = "input[id='name']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             element.send_keys(self.user.login_credentials["email"])
@@ -929,13 +954,17 @@ class WebsiteTasks(TaskSet):
             host = mainHost + "/files/file/" + docId + "/lool"
             driverWB.get(host)
             
+            # Switch to editorframe
             ui_element = "iframe"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.TAG_NAME, ui_element)))
             driverWB.switch_to.frame(element)
             ui_element = "iframe[class='resize-detector']"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
             driverWB.switch_to.frame(element)
+            
             time.sleep(self.timeToWaitShort)
+
+            # Edit Doc
             ui_element = "html/body"
             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.XPATH, ui_element)))
             element.send_keys("Der Loadtest der loaded den Test")
