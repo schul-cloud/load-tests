@@ -361,63 +361,66 @@ class WebsiteTasks(TaskSet):
                     if response.status_code != 200:
                         response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
 
-                    # Request to the Lernstore to get the internal id of the course
-                    with self.client.request("GET",
-                        "https://api.staging.niedersachsen.hpi-schul-cloud.org/lessons?courseId=" + courseId,
-                        name="/lessons?courseId=",
-                        data="courseId=" + courseId,
-                        catch_response=True,
+                    # Request to the Lernstore to get the internal id of the course                   
+                    data = {
+                        "client"            : "Schul-Cloud",
+                        "merlinReference"   : "BWS-04983086",
+                        "title"             : "Geschichte der Mathematik - Die Sprache des Universums",
+                        "url"               : "http://merlin.nibis.de/auth.php?identifier=BWS-04983086"
+                    }
+                    
+                    current_datetime = datetime.datetime.utcnow()
+                    current_timetuple = current_datetime.utctimetuple()
+                    current_timestamp = calendar.timegm(current_timetuple)
+
+                    payload = {
+                        "accountId" : self.account_id,
+                        "userId"    : self.user_id,
+                        "schoolId"  : self.school_id,
+                        "roles"     : self.roles_id,
+                        "iat"       : current_timestamp,
+                        "exp"       : current_timestamp + 2592000,
+                        "aud"       : "https://hpi-schul-cloud.de",
+                        "iss"       : "feathers",
+                        "sub"       : self.account_id,
+                        "jti"       : self.jti #str(uuid.uuid4())
+                    }
+                    #print(payload)
+                    #payload = json.dumps(payload).encode('utf-8')
+                    #print(payload)
+                    #payload = payload.decode('utf-8')
+                    #print(payload)
+
+                    tokenB = jwt.encode(
+                        payload,
+                        key=str(os.environ.get("LERNSTOREKEY")), 
+                        algorithm='HS256',
+                        headers= {"alg":"HS256","typ":"access"}
+                    )
+
+                    print(tokenB)
+
+                    with self.client.request("POST",
+                        "https://api." + mainHost.replace("https://", "") + "/lessons/" + courseId + "/material",
+                        data=data,
+                        name="/lessons/material",
+                        catch_response=True, 
                         allow_redirects=True,
                         headers = {
-                            "authority"         : "api.staging.niedersachsen.hpi-schul-cloud.org",
-                            "accept"            : "application/json, text/plain, */*",
-                            "authorization"     : "Bearer " + self.bearer_token,
+                            "authority"         : "api." + mainHost.replace("https://", ""),
+                            "authorization"     : "Bearer " + tokenB,
                             "origin"            : mainHost,
+                            "path"  	        : "/lessons/" + courseId + "/material",
                             "sec-fetch-site"    : "same-site",
                             "sec-fetch-mode"    : "cors",
-                            "sec-fetch-dest"    : "empty"
+                            "sec-fetch-dest"    : "empty",
+                            "sec-ch-ua-moblie"  : "?0",
+                            "sec-ch-ua"         : '" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"'
                         }
                     ) as response:
-
-                        datajson = json.loads(response.text)
-                        datajson = json.dumps(datajson["data"])
-                        datajson = json.loads(datajson.removeprefix("[").removesuffix("]"))
-                        courseId_Lernstore = datajson["_id"]
-
-                        data = {
-                            "title":"Geschichte der Mathematik - Die Sprache des Universums",
-                            "client":"Schul-Cloud",
-                            "url":"http://merlin.nibis.de/auth.php?identifier=BWS-04983086",
-                            "merlinReference":"BWS-04983086"
-                        }
-
-                        # Adding a material from the Lernstore to the course
-                        with self.client.request("POST",
-                            "https://api.staging.niedersachsen.hpi-schul-cloud.org/lessons/" + courseId_Lernstore + "/material",
-                            data=json.dumps(data),
-                            name="/lessons/material",
-                            catch_response=True, 
-                            allow_redirects=True,
-                            headers = {
-                                "authority"         : "api.staging.niedersachsen.hpi-schul-cloud.org",
-                                "path"  	        : "/lessons/" + courseId_Lernstore + "/material",
-                                "scheme"            : "https",
-                                "accept"            : "application/json, text/plain, */*",
-                                "accept-encoding"   : "gzip, deflate, br",
-                                "accept-language"   : "en-US,en;q=0.9",
-                                "authorization"     : "Bearer " + self.bearer_token,
-                                "content-type"      : "application/json;charset=UTF-8",
-                                "origin"            : mainHost,
-                                "sec-ch-ua"         : '" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"',
-                                "sec-ch-ua-moblie"  : "?0",
-                                "sec-fetch-site"    : "same-site",
-                                "sec-fetch-mode"    : "cors",
-                                "sec-fetch-dest"    : "empty",
-                                "sec-ch-ua-moblie"  : "?0"                          
-                            }
-                        ) as response:
-                            if response.status_code != 201:
-                                response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+                        if response.status_code != 200:
+                            response.failure("Failed! (username: " + self.user.login_credentials["email"] + ", http-code: "+str(response.status_code)+", header: "+str(response.headers)+ ")")
+            
             ### Delete Course ###
             deleteCourse(self, courseId)
 
@@ -457,7 +460,7 @@ class WebsiteTasks(TaskSet):
             ### Add Etherpads ###
             if isinstance(self._user, TeacherUser):
                 thema_data = {
-                    "authority"                         : "staging.niedersachsen.hpi-schul-cloud.org",
+                    "authority"                         : mainHost.replace("https://", ""),
                     "origin"                            : mainHost,
                     "referer"                           : mainHost + "/courses/" + courseId + "/tools/add",
                     "_method"                           : "post",
@@ -535,7 +538,7 @@ class WebsiteTasks(TaskSet):
                     soup = BeautifulSoup(response.text, "html.parser")
                     for room_id in soup.find_all('article'):
                         room_ids.append(room_id.get('data-loclink').removeprefix("/courses/"))
-            mainHost = "https://matrix.niedersachsen.messenger.schule/_matrix/client"
+            mainHost = os.environ.get("MMHOST")
             self.client.headers["authorization"] = "Bearer " + str(self.token)
             self.client.headers["accept"] = "application/json"
 
@@ -638,7 +641,7 @@ class WebsiteTasks(TaskSet):
         bBBKey = os.environ.get("BBBKEY")
         numberRooms = 3
         numberUsers = 6
-        host = "https://bbb-1.bbb.staging.messenger.schule"
+        host = os.environ.get("BBBHOST")
 
         driverWB = webdriver.Chrome('.\chromedriver.exe')
         driverWB.get(host)
