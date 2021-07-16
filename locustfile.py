@@ -147,24 +147,17 @@ def deleteCourse(session, courseId):
 
 # Request of API, domain and nuxtversion of a supplied domain without a user.
 def requestWithoutUser(domain):
-    api_req = requests.get(f"api.{domain}/version")
-    req = requests.get(f"{domain}/version")
-    nuxt_req = requests.get(f"{domain}/nuxtversion")
-
-    if api_req.status_code != 200:
-        print(f"api_req failed : {api_req}")
-    else:
-        print(api_req)
-
-    if req.status_code != 200:
-        print(f"req failed : {req}")
-    else:
-        print(req)
-
-    if nuxt_req.status_code != 200:
-        print(f"nuxt_req failed : {nuxt_req}")
-    else:
-        print(nuxt_req)
+    with requests.get(f"api.{domain}/version") as api_response:
+        if api_response.status_code != 200:
+            api_response.failure(f"API response failed : {api_response} - {api_response.headers}")
+    
+    with requests.get(f"{domain}/version") as response:
+        if response.status_code != 200:
+            response.failure(f"req failed : {response.status_code} - {response.headers}")
+    
+    with requests.get(f"{domain}/nuxtversion") as nuxt_response:
+        if nuxt_response.status_code != 200:
+            nuxt_response.failure(f"nuxt_req failed : {nuxt_response} - {nuxt_response.headers}")
 
 class WebsiteTasks(TaskSet):
     timeToWaitShort = int(os.environ.get("TIMELONG"))
