@@ -395,13 +395,13 @@ class WebsiteTasks(TaskSet):
                     print(tokenB)
 
                     with self.client.request("POST",
-                        "https://api.staging.niedersachsen.hpi-schul-cloud.org/lessons/" + courseId + "/material",
+                        "https://api." + mainHost.replace("https://", "") + "/lessons/" + courseId + "/material",
                         data=data,
                         name="/lessons/material",
                         catch_response=True, 
                         allow_redirects=True,
                         headers = {
-                            "authority"         : "api.staging.niedersachsen.hpi-schul-cloud.org",
+                            "authority"         : "api." + mainHost.replace("https://", ""),
                             "authorization"     : "Bearer " + tokenB,
                             "origin"            : mainHost,
                             "path"  	        : "/lessons/" + courseId + "/material",
@@ -454,7 +454,7 @@ class WebsiteTasks(TaskSet):
             ### Add Etherpads ###
             if isinstance(self._user, TeacherUser):
                 thema_data = {
-                    "authority"                         : "staging.niedersachsen.hpi-schul-cloud.org",
+                    "authority"                         : mainHost.replace("https://", ""),
                     "origin"                            : mainHost,
                     "referer"                           : mainHost + "/courses/" + courseId + "/tools/add",
                     "_method"                           : "post",
@@ -532,7 +532,7 @@ class WebsiteTasks(TaskSet):
                     soup = BeautifulSoup(response.text, "html.parser")
                     for room_id in soup.find_all('article'):
                         room_ids.append(room_id.get('data-loclink').removeprefix("/courses/"))
-            mainHost = "https://matrix.niedersachsen.messenger.schule/_matrix/client"
+            mainHost = os.environ.get("MMHOST")
             self.client.headers["authorization"] = "Bearer " + str(self.token)
             self.client.headers["accept"] = "application/json"
 
@@ -635,7 +635,7 @@ class WebsiteTasks(TaskSet):
         bBBKey = os.environ.get("BBBKEY")
         numberRooms = 3
         numberUsers = 6
-        host = "https://bbb-1.bbb.staging.messenger.schule"
+        host = os.environ.get("BBBHOST")
 
         driverWB = webdriver.Chrome('.\chromedriver.exe')
         driverWB.get(host)
