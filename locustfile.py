@@ -71,13 +71,20 @@ def createDoc(session, docdata):
         "POST",
         "/files/newFile",
         headers = { 
+            # 'keep-alive' allows the connection to remain open for further requests/responses
             "Connection"        : "keep-alive",
+            # Used for identifying Ajax requests
             "x-requested-with"  : "XMLHttpRequest",
+            # Security token
             "csrf-token"        : session.csrf_token,
+            # Data format for request body
             "Content-Type"      : "application/x-www-form-urlencoded",
             "Origin"            : session.user.host,
+            # Indicates the origin of the request
             "Sec-Fetch-Site"    : "same-origin",
+            # Indicates the mode of the request
             "Sec-Fetch-Mode"    : "cors",
+            # Indicates the request's destination
             "Sec-Fetch-Dest"    : "empty",
             "Referer"           : session.user.host + "/files/my/"
         },
