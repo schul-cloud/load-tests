@@ -159,6 +159,11 @@ def requestWithoutUser(domain):
         if nuxt_response.status_code != 200:
             nuxt_response.failure(f"nuxt_req failed : {nuxt_response} - {nuxt_response.headers}")
 
+# Send get-request for given domain
+class requestWithNotAuthenticatedUser():
+    domain = "niedersachsen.cloud"
+    requestWithoutUser(domain)
+
 class WebsiteTasks(TaskSet):
     timeToWaitShort = int(os.environ.get("TIMELONG"))
     timeToWaitLong = int(os.environ.get("TIMESHORT"))
