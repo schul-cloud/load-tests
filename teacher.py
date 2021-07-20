@@ -5,23 +5,22 @@ import yaml
 import os
 
 from locust import HttpUser, TaskSet, between, task
-from pupil import WebsiteTasks
+from locustfile import WebsiteTasks
 from urllib.parse import urlparse
-from bbbTaskSet import bbbTaskSet
 
-class PupilUser(HttpUser):
-    weight = 5
-    tasks = [WebsiteTasks, bbbTaskSet]
+class TeacherUser(HttpUser):
+    weight = 3
+    tasks = [WebsiteTasks.on_start, WebsiteTasks.on_stop]
     wait_time = between(5, 15)
-    
+
     txn_id = ""
-    user_type = "pupil"
+    user_type = "teacher"
     next_batch = ""
     filter_id = None
     login_credentials = None
 
     def __init__(self, *args, **kwargs):
-        super(PupilUser, self).__init__(*args, **kwargs)
+        super(TeacherUser, self).__init__(*args, **kwargs)
 
         logger = logging.getLogger(__name__)
 
