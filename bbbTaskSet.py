@@ -1,6 +1,5 @@
 import time
 import os
-import webbrowser
 import hashlib
 
 from locust import task, tag

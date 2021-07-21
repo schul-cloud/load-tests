@@ -1,40 +1,20 @@
 import json
-import logging
 import os
-import random
 from re import M
-import re
-import requests
-import sys
-import jwt
-import secrets
-import datetime
-import calendar
-import uuid
-from datetime import timezone
 from unicodedata import name
 from locust.user.task import tag
 from requests.sessions import session
-import yaml
 import time
-import webbrowser
-import hashlib
 import base64
-from locust import user
-# from pupil import PupilUser
-# from teacher import TeacherUser
-# from admin import AdminUserk
+from locustfile import PupilUser, TeacherUser, AdminUser
 
 from selenium import webdriver
-from selenium.common.exceptions import (ElementClickInterceptedException, NoSuchWindowException)
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait # available since 2.4.0
 from selenium.webdriver.support import expected_conditions as EC # available since 2.26.0
 from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
-from locust import HttpUser, TaskSet, between, task
-from locust.exception import LocustError, CatchResponseError, ResponseError
-from urllib.parse import urlparse
+from locust import TaskSet, task
+
 
 def is_static_file(f):
     if f.endswith(".css") or f.endswith(".png"):
@@ -641,123 +621,6 @@ class WebsiteTasks(TaskSet):
             self.client.get(mainHost + "/r0/joined_groups")
 
             self.client.get(mainHost + "/r0/profile/" + self.user_id)
-
-    # @tag('bbb')
-    # @task
-    # def bBBTest(self):
-    #     bBBKey = os.environ.get("BBBKEY")
-    #     numberRooms = 3
-    #     numberUsers = 6
-    #     host = os.environ.get("BBBHOST")
-
-    #     #Starts a chrome Browser
-    #     driverWB = webdriver.Chrome('.\chromedriver.exe')
-    #     driverWB.get(host)
-
-    #     counterfirst = 0
-    #     counterTab = 1
-    #     while counterfirst < numberRooms:
-
-    #         timestamp = str(time.time())
-    #         # Creates a BBB-Room with a password
-    #         v = "create"
-    #         x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&name=loadtest-" + str(time.time()) + str(counterfirst) + "&moderatorPW=123&attendeePW=456&lockSettingsDisableMic=true"
-    #         y = host + "/bigbluebutton/api/" + v + "?" + x
-    #         z = str(v) + str(x) + str(bBBKey)
-    #         w = str(y) + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
-
-    #         driverWB.get(w)
-
-    #         countersecond = 0
-
-    #         # Moderator joins the room on a new Tab
-    #         v = "join"
-    #         x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&fullName=loadtest-" + str(counterfirst) + "userMLoadtest-" + str(countersecond) + "&userID=loadtest-" + str(counterfirst) + "userMLoadtest-" + str(countersecond) + "&password=123"
-    #         y = host + "/bigbluebutton/api/" + v + "?" + x
-    #         z = str(v) + str(x) + str(bBBKey)
-    #         w = y + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
-
-    #         windows = driverWB.window_handles
-    #         driverWB.execute_script("window.open('');")
-    #         driverWB.switch_to.window(driverWB.window_handles[counterTab])
-    #         driverWB.get(w)
-
-    #         # Chooses to join the room with "Listen only"
-    #         ui_element = "button[aria-label='Listen only']"
-    #         element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
-    #         element.click()
-
-    #         time.sleep(self.timeToWaitShort)
-
-    #         # Clicks on the Plussign
-    #         ui_element = "tippy-21"
-    #         element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.ID, ui_element)))
-    #         element.click()
-
-    #         # Clicks on the "Share external Video" button
-    #         ui_element = "li[aria-labelledby='dropdown-item-label-26']"
-    #         element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
-    #         element.click()
-
-    #         # Inserts Videolink
-    #         ui_element = "input[id='video-modal-input']"
-    #         element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
-    #         element.send_keys('https://player.vimeo.com/video/418854539')
-
-    #         time.sleep(self.timeToWaitShort)
-
-    #         # Clicks on the button "Share a new video"
-    #         ui_element = "button[aria-label='Share a new video']"
-    #         element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
-    #         element.click()
-
-    #         time.sleep(self.timeToWaitLong)
-
-    #         counterTab += 1
-    #         countersecond += 1
-
-    #         while countersecond < numberUsers:
-
-    #             # Normal User joins the room
-    #             v = "join"
-    #             x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&fullName=loadtest-" + str(counterfirst) + "userLoadtest-" + str(countersecond) + "&userID=loadtest-" + str(counterfirst) + "userLoadtest-" + str(countersecond) + "&password=456"
-    #             y = host + "/bigbluebutton/api/" + v + "?" + x
-    #             z = str(v) + str(x) + str(bBBKey)
-    #             w = y + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
-
-    #             # changes the browsertab
-    #             windows = driverWB.window_handles
-    #             driverWB.execute_script("window.open('');")
-    #             driverWB.switch_to.window(driverWB.window_handles[counterTab])
-    #             driverWB.get(w)
-
-    #             ui_element = "button[aria-label='Play audio']"
-    #             element = WebDriverWait(driverWB, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ui_element)))
-    #             element.click()
-
-    #             time.sleep(self.timeToWaitLong)
-
-    #             countersecond += 1
-    #             counterTab += 1
-
-    #         counterfirst += 1
-
-    #     counterfirst = 0
-    #     time.sleep(30)
-    #     while counterfirst < numberRooms:
-    #         # Closes all the rooms
-    #         v = "end"
-    #         x = "meetingID=loadtest-" + timestamp + str(counterfirst) + "&password=123"
-    #         y = host + "/bigbluebutton/api/" + v + "?" + x
-    #         z = str(v) + str(x) + str(self.bBBKey)
-    #         w = str(y) + "&checksum=" + hashlib.sha1(z.encode()).hexdigest()
-
-    #         driverWB.get(w)
-
-    #         time.sleep(2)
-    #         counterfirst += 1
-
-    #     driverWB.quit()
 
     @tag('sc')
     @task

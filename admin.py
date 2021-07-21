@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 class AdminUser(HttpUser):
     weight = 1
-    tasks = [WebsiteTasks.on_start, WebsiteTasks.on_stop]
+    tasks = None
     wait_time = between(5, 15)
 
     txn_id = ""

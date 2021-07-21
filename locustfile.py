@@ -1,40 +1,69 @@
 import sys
 import logging
 import random
+from locust.user.users import User
 import yaml
 import os
 
-from locust import HttpUser, TaskSet, between, task
+from locust import HttpUser, between
 from pupil import WebsiteTasks
 from urllib.parse import urlparse
 from bbbTaskSet import bbbTaskSet
+from docTaskSet import docTaskSet
 
+tasksSets = [WebsiteTasks, bbbTaskSet, docTaskSet]
+wait_time = between(5, 15)
 class PupilUser(HttpUser):
     weight = 5
-    tasks = [WebsiteTasks, bbbTaskSet]
-    wait_time = between(5, 15)
-    
-    txn_id = ""
+    wait_time = wait_time
+    tasks = tasksSets
     user_type = "pupil"
-    next_batch = ""
-    filter_id = None
     login_credentials = None
 
     def __init__(self, *args, **kwargs):
-        super(PupilUser, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
-        logger = logging.getLogger(__name__)
+        getUserCredentials(self)
 
-        hostname = urlparse(self.host).hostname
-        filename = "./users_" + hostname + ".yaml"
-        if not os.path.exists(filename):
-            logger.error("File does not exist: " + filename)
-            sys.exit(1)
+class AdminUser(HttpUser):
+    weight = 1
+    tasks = tasksSets
+    wait_time = wait_time
+    user_type = "admin"
+    login_credentials = None
 
-        with open(filename, 'r') as file:
-            yaml_loaded = yaml.safe_load(file)
-            if (yaml_loaded != None) and (self.user_type in yaml_loaded):
-                self.login_credentials = random.choice(yaml_loaded[self.user_type])
+    def __init__(self, *args, **kwargs):
+        super(AdminUser, self).__init__(*args, **kwargs)
 
-        if self.login_credentials == None:
-            logger.info("No %s users found in " + filename, self.user_type)
+        getUserCredentials(self)
+
+class TeacherUser(HttpUser):
+    weight = 3
+    tasks = tasksSets
+    wait_time = wait_time
+    user_type = "teacher"
+    login_credentials = None
+
+    def __init__(self, *args, **kwargs):
+        super(TeacherUser, self).__init__(*args, **kwargs)
+        
+        getUserCredentials(self)
+
+        
+
+def getUserCredentials(user):
+    logger = logging.getLogger(__name__)
+
+    hostname = urlparse(user.host).hostname
+    filename = "./users_" + hostname + ".yaml"
+    if not os.path.exists(filename):
+        logger.error("File does not exist: " + filename)
+        sys.exit(1)
+
+    with open(filename, 'r') as file:
+        yaml_loaded = yaml.safe_load(file)
+        if (yaml_loaded != None) and (user.user_type in yaml_loaded):
+            user.login_credentials = random.choice(yaml_loaded[user.user_type])
+
+    if user.login_credentials == None:
+        logger.info("No %s users found in " + filename, user.user_type)
